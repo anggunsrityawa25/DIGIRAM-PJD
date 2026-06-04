@@ -1,0 +1,1645 @@
+import { useState, useMemo, useEffect } from 'react';
+import { Clock, Play, FileText, CheckCircle, RotateCcw, MapPin, FileCheck, History, Home } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { useAssessments } from '../contexts/AssessmentContext';
+import { mockRegions } from '../data/mockData';
+import { allFaskes } from '../data/visualisasiData';
+import { Sidebar } from './Sidebar';
+import { PengaturanAkses } from './PengaturanAkses';
+import { AnalisisKematangan } from './AnalisisKematangan';
+import { PetaProvinsi } from './PetaProvinsi';
+import { InstrumenManager } from './InstrumenManager';
+import type { Assessment } from '../types';
+import { hospitalApi } from '../services/api';
+
+import { EMRAM_INDICATORS, isTerpenuhiFromAnswers, toRSPYCode, calcEmramScoreByStage, detectHighestFilledStage, STAGE_CUMULATIVE_SCORES, STAGE_INDICATOR_COUNTS } from '../data/emramData';
+import { VerifikasiDinkes } from './VerifikasiDinkes';
+
+// ✅ Helper: konversi tanggal secara aman, hindari "Invalid time value"
+function safeDate(val: any): Date | null {
+  if (!val) return null;
+  const d = new Date(val);
+  return isNaN(d.getTime()) ? null : d;
+}
+function safeDateStr(val: any, fallback = '—'): string {
+  const d = safeDate(val);
+  return d ? d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : fallback;
+}
+function safeDateLong(val: any, fallback = '—'): string {
+  const d = safeDate(val);
+  return d ? d.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : fallback;
+}
+function safeDateWeekday(val: any, fallback = ''): string {
+  const d = safeDate(val);
+  return d ? d.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : fallback;
+}
+function safeDateTimeStr(val: any, fallback = '—'): string {
+  const d = safeDate(val);
+  return d ? d.toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : fallback;
+}
+function safeISODate(val: any, fallback = ''): string {
+  const d = safeDate(val);
+  return d ? d.toISOString().split('T')[0] : fallback;
+}
+
+
+// Hitung skor terverifikasi berdasarkan keputusan_per_stage dari Dinkes
+// Logika: cari stage tertinggi BERURUTAN dari 0 yang semuanya "sesuai",
+//         lalu ambil skor kumulatifnya / 39 * 100
+// Return null  → tampil strip (belum selesai verifikasi ATAU dikembalikan step 1)
+// Return number → tampil % (sudah selesai, ada keputusan per stage)
+const STAGE_CUMULATIVE_SCORES_MAP: Record<number, number> = {
+  0: 3, 1: 6, 2: 12, 3: 18, 4: 23, 5: 27, 6: 34, 7: 39,
+};
+function calcVerifiedScore(
+  keputusanPerStage: Record<number, string> | undefined | null,
+  status: string,
+  rawStageResult?: number | null
+): number | null {
+  // Hanya tampilkan skor jika verifikasi sudah selesai
+  if (status !== 'reviewed' && status !== 'validated' && status !== 'rejected') {
+    return null;
+  }
+  // PRIORITAS 1: Hitung dari keputusan_per_stage (hasil verifikasi lapangan step 2)
+  if (keputusanPerStage && Object.keys(keputusanPerStage).length > 0) {
+    // Cari stage BERURUTAN dari 0 yang semuanya "sesuai"
+    let highestValidStage = -1;
+    for (let s = 0; s <= 7; s++) {
+      if (keputusanPerStage[s] === 'sesuai') {
+        highestValidStage = s;
+      } else {
+        break; // rantai putus — stage ini belum memenuhi
+      }
+    }
+    if (highestValidStage < 0) {
+      // Stage 0 sudah "belum" → skor 0%
+      return 0;
+    }
+    const kumulatif = STAGE_CUMULATIVE_SCORES_MAP[highestValidStage] ?? 0;
+    return Math.round((kumulatif / 39) * 100);
+  }
+  // PRIORITAS 2: Pakai stage_result dari DB jika ada (data lama / dikembalikan step 1 dengan skor)
+  if (rawStageResult !== null && rawStageResult !== undefined && rawStageResult >= 0) {
+    return rawStageResult;
+  }
+  // Tidak ada data skor sama sekali → tampil strip
+  return null;
+}
+
+// TAMBAHKAN BLOK KODE INI
+type AssessmentExt = Omit<Assessment, 'currentStage' | 'targetStage'> & {
+  totalScore?: number;
+  currentStage?: number;
+  targetStage?: number;
+  reviewerComments?: string;
+  stageVerifications?: Record<number, 'sesuai' | 'belum' | null>;
+  fieldFindings?: Record<number, string>;
+  catatanKoordinasi?: string;
+  hospitalNotes?: string;
+};
+
+// Fix: helper lokal agar tidak perlu properti dinamis pada tipe Assessment
+function isTerpenuhi(stageNum: number, idx: number, a: AssessmentExt): boolean {
+  const score = a.totalScore ?? 0;
+  return isTerpenuhiFromAnswers(stageNum, idx, a.emramAnswers as any, (a.currentStage ?? 0) as number, score);
+}
+
+// ── 3-Step Verification Modal ─────────────────────────────────────────────────
+const categoryNames: Record<string, string> = {
+  cat1: 'Ancillary Clinical Systems',
+  cat2: 'Clinical Documentation',
+  cat3: 'Order Entry & CPOE',
+  cat4: 'Data Analytics & Reporting',
+  cat5: 'Interoperability & HIE',
+};
+
+interface VerificationExtra {
+  picDinkes: string;
+  tanggalKunjungan: string;
+  fieldFindings: Record<number, string>;
+  stageVerifications: Record<number, 'sesuai' | 'belum' | null>;
+  catatanKoordinasi: string;
+}
+
+function VerifikasiDetailModal({
+  assessment,
+  onClose,
+  onFinish,
+  initialStep = 1,
+}: {
+  assessment: AssessmentExt;
+  onClose: () => void;
+  onFinish: (id: string, keputusan: 'setujui' | 'kembalikan', catatan: string, extra: VerificationExtra) => void;
+  initialStep?: number;
+}) {
+  const [step, setStep] = useState(initialStep);
+  // Step 1 state
+  const [tinjauDecision, setTinjauDecision] = useState<'acc' | 'kembalikan' | null>(null);
+  const [catatanRevisi, setCatatanRevisi] = useState('');
+  // Step 2 state — di-restore dari data assessment yang sudah ada (jika resume)
+  const savedKps = (assessment as any).keputusan_per_stage as Record<number, 'sesuai' | 'belum'> | undefined;
+  const savedTemuan = (assessment as any).temuan_per_stage as Record<number, string> | undefined;
+  const [tanggalKunjungan, setTanggalKunjungan] = useState((assessment as any).tanggal_kunjungan ?? '');
+  const [picDinkes, setPicDinkes] = useState((assessment as any).pic_dinkes ?? '');
+  const [stageDecisions, setStageDecisions] = useState<Record<number, 'sesuai' | 'belum' | null>>(
+    savedKps && Object.keys(savedKps).length > 0
+      ? Object.fromEntries(Object.entries(savedKps).map(([k, v]) => [Number(k), v]))
+      : {}
+  );
+  const [temuanPerStage, setTemuanPerStage] = useState<Record<number, string>>(savedTemuan ?? {});
+  const [catatanKunjungan, setCatatanKunjungan] = useState((assessment as any).catatan_kunjungan ?? '');
+  // Step 3 state
+  const [keputusan, setKeputusan] = useState<'setujui' | 'tolak' | null>(null);
+  const [catatanAkhir, setCatatanAkhir] = useState('');
+  const [showConfirmBA, setShowConfirmBA] = useState(false);
+  const [showSuccessBA, setShowSuccessBA] = useState(false);
+
+  const categories = Object.entries(assessment.categoryScores || {});
+  // Hitung skor berdasarkan stage terakhir yang sudah diisi/diverifikasi
+  // Rumus: skor kumulatif hingga stage tersebut / 39 * 100%
+  // Pastikan targetStage valid (0-7), fallback ke 0 jika nilai aneh dari spread ...raw
+  const safeTargetStage = Math.min(7, Math.max(0, Number(assessment.targetStage) || 0)) as number;
+  const stageResult = safeTargetStage;
+  // Skor dihitung dari keputusan_per_stage (hasil verifikasi lapangan step 2)
+  // Sebelum step 2 selesai, pakai calcEmramScoreByStage sebagai estimasi
+  const computedVerifiedScore = calcVerifiedScore(
+    (assessment as any).keputusan_per_stage,
+    assessment.status,
+    (assessment as any).totalScore ?? null
+  );
+  const totalScore = computedVerifiedScore !== null
+    ? computedVerifiedScore
+    : calcEmramScoreByStage(stageResult);
+  const autoRekomendasi = totalScore >= 70
+    ? `Faskes memenuhi syarat kenaikan ke Stage ${safeTargetStage}. Skor EMRAM ${totalScore}% (Stage ${stageResult} → ${[3,6,12,18,23,27,34,39][stageResult] ?? 0}/39 indikator) mencukupi threshold minimal (70%).`
+    : `Skor EMRAM ${totalScore}% (Stage ${stageResult} → ${[3,6,12,18,23,27,34,39][stageResult] ?? 0}/39 indikator) belum mencukupi threshold minimal (70%) untuk kenaikan ke Stage ${safeTargetStage}.`;
+
+  const highestFilled = detectHighestFilledStage(assessment.emramAnswers as any);
+  const maxStageForPratinjau = highestFilled >= 0 ? highestFilled : safeTargetStage;
+  const stageRange = Array.from({ length: maxStageForPratinjau + 1 }, (_, i) => i);
+  const totalIndicators = stageRange.reduce((s, st) => s + (EMRAM_INDICATORS[st]?.items.length ?? 0), 0);
+  const terpenuhiCount = stageRange.reduce((s, st) =>
+    s + (EMRAM_INDICATORS[st]?.items.filter(item => {
+      const raw = (assessment.emramAnswers as any)?.[item.id];
+      return raw === 'yes' || raw === 'partial';
+    }).length ?? 0), 0);
+
+  const steps = [
+    { num: 1, label: 'Tinjau Laporan' },
+    { num: 2, label: 'Kunjungi RS' },
+    { num: 3, label: 'Keputusan & Berita Acara' },
+  ];
+
+  const inputFieldStyle: React.CSSProperties = {
+    width: '100%', padding: '9px 12px', borderRadius: '8px',
+    border: '1px solid var(--border2)', background: 'var(--surface)',
+    fontSize: '13px', color: 'var(--text)', fontFamily: "'Plus Jakarta Sans', sans-serif",
+    outline: 'none', boxSizing: 'border-box',
+  };
+
+  const labelStyle: React.CSSProperties = {
+    display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text2)', marginBottom: '6px',
+  };
+
+  const today = new Date().toISOString().split('T')[0];
+
+  // Fix: helper untuk onFinish saat kembalikan di step 1 (tambah empty extra)
+  const handleKembalikanStep1 = () => {
+    onFinish(assessment.id, 'kembalikan', catatanRevisi, {
+      picDinkes: '',
+      tanggalKunjungan: '',
+      fieldFindings: {},
+      stageVerifications: {},
+      catatanKoordinasi: '',
+    });
+  };
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      zIndex: 1000, padding: '20px',
+    }} onClick={onClose}>
+      <div style={{
+        background: 'var(--surface)', borderRadius: 'var(--radius-lg)',
+        width: '100%', maxWidth: '760px', maxHeight: '92vh',
+        display: 'flex', flexDirection: 'column', boxShadow: 'var(--shadow-lg)',
+        position: 'relative',
+      }} onClick={e => e.stopPropagation()}>
+
+        {/* Header */}
+        <div style={{ padding: '18px 24px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexShrink: 0 }}>
+          <div>
+            <div style={{ fontSize: '11px', color: 'var(--text3)', marginBottom: '3px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Proses Verifikasi Dinkes</div>
+            <div style={{ fontSize: '17px', fontWeight: 700, color: 'var(--text)' }}>{assessment.hospitalName}</div>
+            <div style={{ fontSize: '12px', color: 'var(--text3)', marginTop: '2px' }}>Target Stage {safeTargetStage} · Skor: {totalScore}%</div>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '20px', color: 'var(--text3)', padding: '2px 8px', lineHeight: 1 }}>×</button>
+        </div>
+
+        {/* Step indicator */}
+        <div style={{ padding: '14px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0, overflowX: 'auto' }}>
+          {steps.map((s, i) => (
+            <div key={s.num} style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+              <div style={{
+                width: '26px', height: '26px', borderRadius: '50%', flexShrink: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '11px', fontWeight: 700,
+                background: step === s.num ? 'var(--accent)' : step > s.num ? 'var(--accent)' : 'var(--surface2)',
+                color: step >= s.num ? 'white' : 'var(--text3)',
+              }}>
+                {step > s.num ? '✓' : s.num}
+              </div>
+              <span style={{ fontSize: '12px', fontWeight: step === s.num ? 700 : 400, color: step === s.num ? 'var(--accent)' : 'var(--text3)', whiteSpace: 'nowrap' }}>
+                {s.label}
+              </span>
+              {i < steps.length - 1 && (
+                <div style={{ width: '28px', height: '1px', background: step > s.num ? 'var(--accent)' : 'var(--border2)', margin: '0 4px' }} />
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Content */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
+
+          {/* ── STEP 1: Tinjau Laporan ── */}
+          {step === 1 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Summary cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '10px' }}>
+                {[
+                  { label: 'Stage Saat Ini', val: <span className={`stage-badge stage-s${Math.min(7, Math.max(0, Number(assessment.currentStage)||0))}`}>Stage {Math.min(7, Math.max(0, Number(assessment.currentStage)||0))}</span> },
+                  { label: 'Target Stage', val: <span className={`stage-badge stage-s${safeTargetStage}`}>Stage {safeTargetStage}</span> },
+                  { label: 'Skor Total', val: <span style={{ fontSize: '20px', fontWeight: 800, color: totalScore >= 70 ? 'var(--accent)' : 'var(--warn)' }}>{totalScore}%</span> },
+                  { label: 'Indikator Terpenuhi', val: <span style={{ fontSize: '16px', fontWeight: 700, color: terpenuhiCount / totalIndicators >= 0.7 ? 'var(--accent)' : 'var(--warn)' }}>{terpenuhiCount}/{totalIndicators}</span> },
+                ].map(({ label, val }) => (
+                  <div key={label} style={{ background: 'var(--surface2)', borderRadius: '10px', padding: '12px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '10px', color: 'var(--text3)', marginBottom: '6px' }}>{label}</div>
+                    {val}
+                  </div>
+                ))}
+              </div>
+
+              {/* Skor per kategori */}
+              {categories.length > 0 && (
+                <div style={{ border: '1px solid var(--border)', borderRadius: '10px', overflow: 'hidden' }}>
+                  <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border)', fontSize: '12px', fontWeight: 700, color: 'var(--text2)' }}>Skor per Kategori</div>
+                  <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: '9px' }}>
+                    {categories.map(([catId, score]) => {
+                      const pct = score as number;
+                      const color = pct >= 80 ? 'var(--accent)' : pct >= 60 ? 'var(--warn)' : 'var(--danger)';
+                      return (
+                        <div key={catId}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                            <span style={{ fontSize: '12px', color: 'var(--text2)' }}>{categoryNames[catId] || catId}</span>
+                            <span style={{ fontSize: '12px', fontWeight: 700, color }}>{pct}%</span>
+                          </div>
+                          <div className="progress-wrap"><div className="progress-fill" style={{ width: `${pct}%`, background: color }} /></div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* EMRAM indicators per stage */}
+              <div style={{ border: '1px solid var(--border)', borderRadius: '10px', overflow: 'hidden' }}>
+                <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border)', fontSize: '12px', fontWeight: 700, color: 'var(--text2)' }}>
+                  Indikator EMRAM Stage 0 – {safeTargetStage}
+                </div>
+                <div style={{ padding: '4px 0' }}>
+                  {stageRange.map(stageNum => {
+                    const stageData = EMRAM_INDICATORS[stageNum];
+                    if (!stageData) return null;
+                    const stageTerpenuhi = stageData.items.filter((_, idx) => isTerpenuhi(stageNum, idx, assessment)).length;
+                    const isAll = stageTerpenuhi === stageData.items.length;
+                    return (
+                      <div key={stageNum} style={{ borderTop: stageNum > 0 ? '1px solid var(--border)' : 'none' }}>
+                        <div style={{ padding: '8px 16px', background: isAll ? 'var(--accent-light)' : 'var(--surface2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: '12px', fontWeight: 700, color: isAll ? 'var(--accent)' : 'var(--text)' }}>{stageData.title}</span>
+                          <span style={{ fontSize: '11px', fontWeight: 600, color: isAll ? 'var(--accent)' : 'var(--text3)', background: isAll ? 'white' : 'transparent', padding: '2px 8px', borderRadius: '20px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                            {stageTerpenuhi}/{stageData.items.length} terpenuhi
+                            <span style={{ fontWeight: 700, color: isAll ? 'var(--accent)' : Math.round(stageTerpenuhi / stageData.items.length * 100) >= 70 ? 'var(--accent)' : '#D97706' }}>
+                              ({Math.round(stageTerpenuhi / stageData.items.length * 100)}%)
+                            </span>
+                          </span>
+                        </div>
+                        {stageData.items.map((item, idx) => {
+                          const fulfilled = isTerpenuhi(stageNum, idx, assessment);
+                          return (
+                            <div key={item.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '9px 16px', borderTop: '1px solid var(--border)' }}>
+                              <div style={{
+                                width: '18px', height: '18px', borderRadius: '50%', flexShrink: 0, marginTop: '1px',
+                                background: fulfilled ? 'var(--accent)' : 'var(--danger-light)',
+                                border: `2px solid ${fulfilled ? 'var(--accent)' : 'var(--danger)'}`,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                color: fulfilled ? 'white' : 'var(--danger)', fontSize: '9px', fontWeight: 700,
+                              }}>
+                                {fulfilled ? '✓' : '✗'}
+                              </div>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: '12px', color: fulfilled ? 'var(--text)' : 'var(--text2)', lineHeight: 1.5 }}>{item.text}</div>
+                                <div style={{ marginTop: '3px', display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                  <span style={{ fontSize: '10px', fontWeight: 600, padding: '1px 7px', borderRadius: '20px', background: fulfilled ? 'var(--accent-light)' : 'var(--danger-light)', color: fulfilled ? 'var(--accent)' : 'var(--danger)' }}>
+                                    {fulfilled ? 'Terpenuhi' : 'Belum Terpenuhi'}
+                                  </span>
+                                  <span style={{ fontSize: '10px', color: 'var(--text3)' }}>Bukti: <em>{fulfilled ? item.buktiHint : '—'}</em></span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {assessment.hospitalNotes && (
+                <div style={{ border: '1px solid var(--border)', borderRadius: '10px', padding: '12px 16px' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Catatan dari Faskes</div>
+                  <div style={{ fontSize: '12px', color: 'var(--text2)', lineHeight: 1.65 }}>{assessment.hospitalNotes}</div>
+                </div>
+              )}
+
+              {/* Two action choices */}
+              <div>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text2)', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Tindak Lanjut Laporan</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <button
+                    onClick={() => setTinjauDecision('acc')}
+                    style={{
+                      padding: '14px', borderRadius: '10px', textAlign: 'left', cursor: 'pointer',
+                      border: `2px solid ${tinjauDecision === 'acc' ? '#15804D' : '#86EFAC'}`,
+                      background: tinjauDecision === 'acc' ? '#F0FDF4' : 'var(--surface)',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                      <CheckCircle size={16} color="#15804D" />
+                      <span style={{ fontSize: '13px', fontWeight: 700, color: '#15804D' }}>Acc Laporan</span>
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--text3)', lineHeight: 1.4 }}>Laporan diterima — lanjutkan ke jadwal kunjungan lapangan</div>
+                  </button>
+                  <button
+                    onClick={() => setTinjauDecision('kembalikan')}
+                    style={{
+                      padding: '14px', borderRadius: '10px', textAlign: 'left', cursor: 'pointer',
+                      border: `2px solid ${tinjauDecision === 'kembalikan' ? '#DC2626' : '#FCA5A5'}`,
+                      background: tinjauDecision === 'kembalikan' ? '#FEF2F2' : 'var(--surface)',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                      <RotateCcw size={16} color="#DC2626" />
+                      <span style={{ fontSize: '13px', fontWeight: 700, color: '#DC2626' }}>Kembalikan ke RS untuk Revisi</span>
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--text3)', lineHeight: 1.4 }}>Laporan belum memenuhi syarat — minta faskes melakukan perbaikan</div>
+                  </button>
+                </div>
+                {tinjauDecision === 'kembalikan' && (
+                  <div style={{ marginTop: '12px' }}>
+                    <label style={labelStyle}>Catatan Revisi untuk Faskes <span style={{ color: 'var(--danger)' }}>*</span></label>
+                    <textarea
+                      value={catatanRevisi}
+                      onChange={e => setCatatanRevisi(e.target.value)}
+                      rows={3}
+                      placeholder="Tulis poin-poin yang harus diperbaiki oleh faskes sebelum mengajukan kembali…"
+                      style={{ ...inputFieldStyle, resize: 'vertical' }}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ── STEP 2: Kunjungi RS ── */}
+          {step === 2 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ background: 'var(--accent-light)', border: '1px solid var(--accent)', borderRadius: '10px', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <MapPin size={16} color="var(--accent)" />
+                <div>
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--accent)' }}>Kunjungan Lapangan ke {assessment.hospitalName}</div>
+                  <div style={{ fontSize: '11px', color: 'var(--text3)', marginTop: '2px' }}>Isi detail kunjungan verifikasi lapangan — catat keputusan dan temuan per stage</div>
+                </div>
+              </div>
+
+              {/* Tanggal + PIC */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                <div>
+                  <label style={labelStyle}>Tanggal Kunjungan</label>
+                  <input type="date" value={tanggalKunjungan} min={today} onChange={e => setTanggalKunjungan(e.target.value)} style={inputFieldStyle} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Nama Koordinator Dinkes</label>
+                  <input type="text" value={picDinkes} onChange={e => setPicDinkes(e.target.value)} placeholder="Nama staf Dinkes yang berkunjung" style={inputFieldStyle} />
+                </div>
+              </div>
+
+              {/* Per-stage audit results */}
+              {stageRange.map(stageNum => {
+                const stageData = EMRAM_INDICATORS[stageNum];
+                if (!stageData) return null;
+                const stageTerpenuhi = stageData.items.filter((_, idx) => isTerpenuhi(stageNum, idx, assessment)).length;
+                const isAll = stageTerpenuhi === stageData.items.length;
+                const decision = stageDecisions[stageNum] ?? null;
+                const temuan = temuanPerStage[stageNum] ?? '';
+                return (
+                  <div key={stageNum} style={{ border: `1px solid ${decision === 'sesuai' ? '#86EFAC' : decision === 'belum' ? '#FCA5A5' : 'var(--border)'}`, borderRadius: '10px', overflow: 'hidden' }}>
+                    {/* Stage header */}
+                    <div style={{ padding: '9px 14px', background: isAll ? '#E8F7EF' : 'var(--surface2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)' }}>
+                      <span style={{ fontSize: '12px', fontWeight: 700, color: isAll ? '#15804D' : 'var(--text)' }}>{stageData.title}</span>
+                      <span style={{ fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '20px', background: isAll ? '#15804D' : 'var(--surface)', color: isAll ? 'white' : 'var(--text3)', border: isAll ? 'none' : '1px solid var(--border2)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                        {stageTerpenuhi}/{stageData.items.length} terpenuhi
+                        <span style={{ fontWeight: 700 }}>
+                          ({Math.round(stageTerpenuhi / stageData.items.length * 100)}%)
+                        </span>
+                      </span>
+                    </div>
+                    {/* Indicator rows */}
+                    {stageData.items.map((item, idx) => {
+                      const fulfilled = isTerpenuhi(stageNum, idx, assessment);
+                      return (
+                        <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 14px', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
+                          <div style={{ width: '16px', height: '16px', borderRadius: '50%', flexShrink: 0, background: fulfilled ? 'var(--accent)' : 'var(--danger-light)', border: `1.5px solid ${fulfilled ? 'var(--accent)' : 'var(--danger)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: fulfilled ? 'white' : 'var(--danger)', fontSize: '8px', fontWeight: 700 }}>
+                            {fulfilled ? '✓' : '✗'}
+                          </div>
+                          <span style={{ fontSize: '12px', color: 'var(--text2)', lineHeight: 1.4 }}>{item.text}</span>
+                        </div>
+                      );
+                    })}
+                    {/* Decision buttons */}
+                    <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', background: 'var(--surface)', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '11px', color: 'var(--text3)', fontWeight: 600 }}>Verifikasi lapangan:</span>
+                      <button
+                        onClick={() => setStageDecisions(prev => ({ ...prev, [stageNum]: prev[stageNum] === 'sesuai' ? null : 'sesuai' }))}
+                        style={{ padding: '5px 14px', borderRadius: '6px', cursor: 'pointer', fontFamily: "'Plus Jakarta Sans', sans-serif", border: `1.5px solid ${decision === 'sesuai' ? '#15804D' : '#86EFAC'}`, background: decision === 'sesuai' ? '#F0FDF4' : 'transparent', color: '#15804D', fontSize: '11px', fontWeight: 700 }}
+                      >
+                        ✓ Sudah Sesuai
+                      </button>
+                      <button
+                        onClick={() => setStageDecisions(prev => ({ ...prev, [stageNum]: prev[stageNum] === 'belum' ? null : 'belum' }))}
+                        style={{ padding: '5px 14px', borderRadius: '6px', cursor: 'pointer', fontFamily: "'Plus Jakarta Sans', sans-serif", border: `1.5px solid ${decision === 'belum' ? '#DC2626' : '#FCA5A5'}`, background: decision === 'belum' ? '#FEF2F2' : 'transparent', color: '#DC2626', fontSize: '11px', fontWeight: 700 }}
+                      >
+                        ✕ Belum Memenuhi
+                      </button>
+                    </div>
+                    {/* Temuan Lapangan per stage */}
+                    <div style={{ padding: '10px 14px', background: 'var(--surface)' }}>
+                      <label style={{ ...labelStyle, fontSize: '11px', marginBottom: '4px' }}>Temuan Lapangan — {stageData.title.split(' — ')[0]}</label>
+                      <textarea
+                        value={temuan}
+                        onChange={e => setTemuanPerStage(prev => ({ ...prev, [stageNum]: e.target.value }))}
+                        rows={2}
+                        placeholder={`Tulis temuan lapangan spesifik untuk ${stageData.title.split(' — ')[0]}…`}
+                        style={{ ...inputFieldStyle, resize: 'vertical' }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Catatan Koordinasi */}
+              <div>
+                <label style={labelStyle}>Catatan Koordinasi (Semua Stage)</label>
+                <textarea
+                  value={catatanKunjungan}
+                  onChange={e => setCatatanKunjungan(e.target.value)}
+                  rows={3}
+                  placeholder="Catatan diskusi, kesepakatan, atau tindak lanjut dari kunjungan untuk semua stage…"
+                  style={{ ...inputFieldStyle, resize: 'vertical' }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* ── STEP 3: Keputusan & Berita Acara ── */}
+          {step === 3 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Summary */}
+              <div style={{ background: 'var(--surface2)', borderRadius: '10px', padding: '12px 16px', display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+                <div><div style={{ fontSize: '10px', color: 'var(--text3)', marginBottom: '2px' }}>Faskes</div><div style={{ fontSize: '13px', fontWeight: 700 }}>{assessment.hospitalName}</div></div>
+                <div><div style={{ fontSize: '10px', color: 'var(--text3)', marginBottom: '2px' }}>Target Stage</div><span className={`stage-badge stage-s${safeTargetStage}`}>Stage {safeTargetStage}</span></div>
+                <div><div style={{ fontSize: '10px', color: 'var(--text3)', marginBottom: '2px' }}>Skor Total</div><span style={{ fontSize: '18px', fontWeight: 800, color: totalScore >= 70 ? 'var(--accent)' : 'var(--warn)' }}>{totalScore}%</span></div>
+                <div><div style={{ fontSize: '10px', color: 'var(--text3)', marginBottom: '2px' }}>Indikator</div><span style={{ fontSize: '13px', fontWeight: 700 }}>{terpenuhiCount}/{totalIndicators}</span></div>
+                {tanggalKunjungan && <div><div style={{ fontSize: '10px', color: 'var(--text3)', marginBottom: '2px' }}>Tgl Kunjungan</div><span style={{ fontSize: '12px', fontWeight: 600 }}>{safeDateStr(tanggalKunjungan)}</span></div>}
+              </div>
+
+              {/* Recommendation */}
+              <div style={{ background: totalScore >= 70 ? 'var(--accent-light)' : '#FEF3C7', border: `1px solid ${totalScore >= 70 ? 'var(--accent)' : '#D97706'}`, borderRadius: '10px', padding: '12px 14px' }}>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: totalScore >= 70 ? 'var(--accent)' : '#D97706', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Rekomendasi Sistem</div>
+                <div style={{ fontSize: '12px', color: 'var(--text2)', lineHeight: 1.6 }}>{autoRekomendasi}</div>
+              </div>
+
+              {/* Decision */}
+              <div>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text2)', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Keputusan Akhir Verifikasi</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  {[
+                    { val: 'setujui' as const, label: 'Setujui', desc: 'Assessment memenuhi syarat — faskes naik stage', icon: <CheckCircle size={18} color="#15804D" />, color: '#15804D', bg: '#F0FDF4', border: '#86EFAC' },
+                    { val: 'tolak' as const, label: 'Tolak', desc: 'Belum memenuhi syarat — kirimkan catatan perbaikan', icon: <RotateCcw size={18} color="#DC2626" />, color: '#DC2626', bg: '#FEF2F2', border: '#FCA5A5' },
+                  ].map(opt => (
+                    <button
+                      key={opt.val}
+                      onClick={() => setKeputusan(opt.val)}
+                      style={{
+                        padding: '14px', borderRadius: '10px', textAlign: 'left', cursor: 'pointer',
+                        border: `2px solid ${keputusan === opt.val ? opt.color : opt.border}`,
+                        background: keputusan === opt.val ? opt.bg : 'var(--surface)',
+                        transition: 'all 0.15s',
+                      }}
+                    >
+                      <div style={{ marginBottom: '4px' }}>{opt.icon}</div>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: opt.color, marginBottom: '3px' }}>{opt.label}</div>
+                      <div style={{ fontSize: '11px', color: 'var(--text3)', lineHeight: 1.4 }}>{opt.desc}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Catatan Akhir */}
+              <div>
+                <label style={labelStyle}>Catatan Akhir {keputusan === 'tolak' && <span style={{ color: 'var(--danger)' }}>*</span>}</label>
+                <textarea
+                  value={catatanAkhir}
+                  onChange={e => setCatatanAkhir(e.target.value)}
+                  rows={3}
+                  placeholder={keputusan === 'tolak' ? 'Tulis alasan penolakan dan poin perbaikan yang harus dilakukan faskes…' : 'Tulis catatan atau rekomendasi tambahan (opsional)…'}
+                  style={{ ...inputFieldStyle, resize: 'vertical' }}
+                />
+              </div>
+
+              {/* Berita Acara Preview */}
+              {keputusan && (
+                <div style={{ border: '1px solid var(--border)', borderRadius: '10px', overflow: 'hidden' }}>
+                  <div style={{ padding: '10px 16px', background: 'var(--surface2)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <FileCheck size={15} color="var(--text2)" />
+                    <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text2)' }}>Pratinjau Berita Acara Verifikasi</span>
+                  </div>
+                  <div style={{ padding: '16px', fontSize: '12px', color: 'var(--text2)', lineHeight: 1.8, fontFamily: 'Georgia, serif' }}>
+                    <div style={{ textAlign: 'center', marginBottom: '12px' }}>
+                      <div style={{ fontWeight: 700, fontSize: '13px', textTransform: 'uppercase' }}>BERITA ACARA VERIFIKASI KEMATANGAN RME</div>
+                      <div>Nomor: BA-{String(parseInt(assessment.id.replace(/\D/g, ''), 10)).padStart(3, '0')}/{new Date().getFullYear()}/DINKES</div>
+                    </div>
+                    <p>
+                      Pada hari ini, {tanggalKunjungan ? new Date(tanggalKunjungan).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}, telah dilakukan verifikasi kematangan Rekam Medis Elektronik (RME) terhadap:
+                    </p>
+                    <p><strong>Nama Faskes:</strong> {assessment.hospitalName}</p>
+                    <p><strong>Target Stage EMRAM:</strong> Stage {safeTargetStage}</p>
+                    <p><strong>Skor Self-Assessment:</strong> {totalScore}% ({terpenuhiCount}/{totalIndicators} indikator terpenuhi)</p>
+                    {picDinkes && <p><strong>Koordinator Verifikator:</strong> {picDinkes}</p>}
+                    {stageRange.some(s => stageDecisions[s] || temuanPerStage[s]) && (
+                      <div style={{ marginBottom: '6px' }}>
+                        <strong>Temuan Kunjungan Lapangan:</strong>
+                        {stageRange.map(stageNum => {
+                          const stageData = EMRAM_INDICATORS[stageNum];
+                          const dec = stageDecisions[stageNum];
+                          const temuan = temuanPerStage[stageNum];
+                          if (!dec && !temuan) return null;
+                          return (
+                            <div key={stageNum} style={{ marginLeft: '16px', marginTop: '3px' }}>
+                              <em>{stageData?.title.split(' — ')[0]}:</em>{' '}
+                              {dec === 'sesuai' ? '✓ Sudah Sesuai' : dec === 'belum' ? '✕ Belum Memenuhi' : '—'}
+                              {temuan && <div style={{ marginLeft: '16px', fontSize: '11px', color: 'var(--text3)' }}>{temuan}</div>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {catatanKunjungan && <p><strong>Catatan Koordinasi:</strong> {catatanKunjungan}</p>}
+                    <p><strong>Keputusan:</strong> <span style={{ fontWeight: 700, color: keputusan === 'setujui' ? '#15804D' : '#DC2626' }}>{keputusan === 'setujui' ? 'DISETUJUI — Faskes memenuhi syarat kenaikan stage' : 'DITOLAK — Faskes perlu melakukan perbaikan'}</span></p>
+                    {catatanAkhir && <p><strong>Catatan Akhir:</strong> {catatanAkhir}</p>}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Confirmation overlay — Terbitkan Berita Acara */}
+        {showConfirmBA && (
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-lg)', zIndex: 10 }}>
+            <div style={{ background: 'var(--surface)', borderRadius: '14px', padding: '32px 28px', width: '380px', maxWidth: '90%', textAlign: 'center', boxShadow: '0 16px 48px rgba(0,0,0,0.2)' }}>
+              <div style={{ width: '52px', height: '52px', borderRadius: '50%', background: 'var(--accent-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                <FileCheck size={24} color="var(--accent)" />
+              </div>
+              <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text)', marginBottom: '8px' }}>Terbitkan Berita Acara?</div>
+              <p style={{ fontSize: '13px', color: 'var(--text3)', lineHeight: 1.6, marginBottom: '24px' }}>
+                Berita acara akan diterbitkan dan verifikasi diselesaikan. Keputusan: <strong style={{ color: keputusan === 'setujui' ? '#15804D' : '#DC2626' }}>{keputusan === 'setujui' ? 'DISETUJUI' : 'DITOLAK'}</strong>. Tindakan ini tidak dapat dibatalkan.
+              </p>
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                <button onClick={() => setShowConfirmBA(false)} style={{ padding: '10px 24px', borderRadius: '8px', border: '1px solid var(--border2)', background: 'var(--surface2)', color: 'var(--text)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+                  Batal
+                </button>
+                <button
+                  onClick={() => {
+                    setShowConfirmBA(false);
+                    setShowSuccessBA(true);
+                    setTimeout(() => {
+                      setShowSuccessBA(false);
+                      if (!keputusan) return;
+                      onFinish(assessment.id, keputusan === 'setujui' ? 'setujui' : 'kembalikan', catatanAkhir || autoRekomendasi, {
+                        picDinkes,
+                        tanggalKunjungan,
+                        fieldFindings: temuanPerStage,
+                        stageVerifications: stageDecisions,
+                        catatanKoordinasi: catatanKunjungan,
+                      });
+                    }, 2500);
+                  }}
+                  style={{ padding: '10px 24px', borderRadius: '8px', border: 'none', background: 'var(--accent)', color: 'white', fontSize: '13px', fontWeight: 700, cursor: 'pointer', fontFamily: "'Plus Jakarta Sans', sans-serif", display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <FileCheck size={14} /> Ya, Terbitkan
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Success overlay */}
+        {showSuccessBA && (
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-lg)', zIndex: 10 }}>
+            <div style={{ background: 'var(--surface)', borderRadius: '14px', padding: '40px 28px', width: '360px', maxWidth: '90%', textAlign: 'center', boxShadow: '0 16px 48px rgba(0,0,0,0.2)' }}>
+              <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'var(--accent-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+                <CheckCircle size={32} color="var(--accent)" />
+              </div>
+              <div style={{ fontSize: '17px', fontWeight: 700, color: 'var(--text)', marginBottom: '10px' }}>Berita Acara Berhasil Diterbitkan</div>
+              <p style={{ fontSize: '13px', color: 'var(--text3)', lineHeight: 1.6, marginBottom: '6px' }}>
+                Verifikasi telah selesai diproses. Faskes akan menerima notifikasi hasil verifikasi dari Dinkes.
+              </p>
+              <div style={{ marginTop: '16px', padding: '8px 16px', background: keputusan === 'setujui' ? 'var(--accent-light)' : '#FEF2F2', borderRadius: '8px', display: 'inline-block' }}>
+                <span style={{ fontSize: '13px', fontWeight: 700, color: keputusan === 'setujui' ? 'var(--accent)' : '#DC2626' }}>
+                  {keputusan === 'setujui' ? '✓ Penilaian DISETUJUI' : '✕ Penilaian DITOLAK'}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Footer */}
+        <div style={{ padding: '14px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+          <div>
+            {step > 1 && (
+              <button className="simari-btn simari-btn-outline" onClick={() => setStep(step - 1)}>
+                Kembali
+              </button>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <span style={{ fontSize: '11px', color: 'var(--text3)' }}>Langkah {step} dari 3</span>
+            {/* Fix: tambah extra kosong agar jumlah argumen = 4 */}
+            {step === 1 && tinjauDecision === 'kembalikan' && (
+              <button
+                className="simari-btn simari-btn-primary"
+                disabled={!catatanRevisi.trim()}
+                style={{ opacity: !catatanRevisi.trim() ? 0.5 : 1, background: 'var(--danger)', borderColor: 'var(--danger)' }}
+                onClick={handleKembalikanStep1}
+              >
+                Selesaikan &amp; Kembalikan ke RS
+              </button>
+            )}
+            {step === 1 && tinjauDecision === 'acc' && (
+              <button className="simari-btn simari-btn-primary" onClick={() => setStep(2)}>
+                Lanjut ke Kunjungan RS
+              </button>
+            )}
+            {step === 2 && (
+              <button className="simari-btn simari-btn-primary" onClick={() => setStep(3)}>
+                Lanjut ke Keputusan
+              </button>
+            )}
+            {step === 3 && (
+              <button
+                className="simari-btn simari-btn-primary"
+                disabled={!keputusan || (keputusan === 'tolak' && !catatanAkhir.trim())}
+                style={{ opacity: (!keputusan || (keputusan === 'tolak' && !catatanAkhir.trim())) ? 0.5 : 1, display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                onClick={() => { if (keputusan) setShowConfirmBA(true); }}
+              >
+                <FileCheck size={14} /> Terbitkan Berita Acara
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Laporan Modal (untuk riwayat) ─────────────────────────────────────────────
+function LaporanVerifikasiModal({ assessment, onClose }: { assessment: AssessmentExt; onClose: () => void }) {
+  const highestFilledL = detectHighestFilledStage(assessment.emramAnswers as any);
+  const safeTargetStageL = Math.min(7, Math.max(0, Number(assessment.targetStage) || 0));
+  const maxStageL = highestFilledL >= 0 ? highestFilledL : safeTargetStageL;
+  const stageRange = Array.from({ length: maxStageL + 1 }, (_, i) => i);
+  const totalIndicators = stageRange.reduce((s, st) => s + (EMRAM_INDICATORS[st]?.items.length ?? 0), 0);
+  const terpenuhiCount = stageRange.reduce((s, st) =>
+    s + (EMRAM_INDICATORS[st]?.items.filter(item => {
+      const raw = (assessment.emramAnswers as any)?.[item.id];
+      return raw === 'yes' || raw === 'partial';
+    }).length ?? 0), 0);
+  const disetujui = assessment.status === 'reviewed' || assessment.status === 'validated' || assessment.status === 'under_validation';
+  // Skor dari keputusan_per_stage (hasil verifikasi lapangan)
+  const stageForScore = assessment.targetStage ?? assessment.currentStage ?? 0;
+  const totalScore = calcVerifiedScore(
+    (assessment as any).keputusan_per_stage,
+    assessment.status,
+    (assessment as any).totalScore ?? null
+  ) ?? calcEmramScoreByStage(stageForScore);
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      zIndex: 1000, padding: '20px',
+    }} onClick={onClose}>
+      <div style={{
+        background: 'var(--surface)', borderRadius: 'var(--radius-lg)',
+        width: '100%', maxWidth: '680px', maxHeight: '90vh',
+        display: 'flex', flexDirection: 'column', boxShadow: 'var(--shadow-lg)',
+        overflow: 'hidden',
+      }} onClick={e => e.stopPropagation()}>
+
+        {/* Header */}
+        <div style={{ padding: '18px 24px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexShrink: 0 }}>
+          <div>
+            <div style={{ fontSize: '11px', color: 'var(--text3)', marginBottom: '3px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Laporan Hasil Verifikasi</div>
+            <div style={{ fontSize: '17px', fontWeight: 700, color: 'var(--text)', marginBottom: '6px' }}>{assessment.hospitalName}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <span className={`stage-badge stage-s${assessment.currentStage}`}>Stage {assessment.currentStage}</span>
+              <span style={{ fontSize: '11px', color: 'var(--text3)' }}>→</span>
+              <span className={`stage-badge stage-s${safeTargetStageL}`}>Target Stage {safeTargetStageL}</span>
+              <span style={{ fontSize: '12px', fontWeight: 600, padding: '2px 10px', borderRadius: '20px', background: disetujui ? 'var(--accent-light)' : 'var(--danger-light)', color: disetujui ? 'var(--accent)' : 'var(--danger)' }}>
+                {disetujui ? '✓ Disetujui' : '✕ Dikembalikan'}
+              </span>
+              <span style={{ fontSize: '12px', color: 'var(--text3)' }}>Skor: <strong style={{ color: 'var(--text)' }}>{calcVerifiedScore((assessment as any).keputusan_per_stage, assessment.status, (assessment as any).totalScore ?? null) ?? totalScore}%</strong></span>
+              <span style={{ fontSize: '12px', color: 'var(--text3)' }}>{terpenuhiCount}/{totalIndicators} indikator terpenuhi</span>
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '20px', color: 'var(--text3)', padding: '2px 8px', lineHeight: 1, flexShrink: 0 }}>×</button>
+        </div>
+
+        {/* Scrollable content */}
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+
+          {/* Indikator EMRAM per stage */}
+          <div style={{ borderBottom: '1px solid var(--border)' }}>
+            <div style={{ padding: '12px 24px 10px', fontSize: '13px', fontWeight: 700, color: 'var(--text)' }}>
+              Indikator EMRAM Stage 0 – {safeTargetStageL}
+            </div>
+            {stageRange.map(stageNum => {
+              const stageData = EMRAM_INDICATORS[stageNum];
+              if (!stageData) return null;
+              const stageTerpenuhi = stageData.items.filter((_, idx) => isTerpenuhi(stageNum, idx, assessment)).length;
+              const isAll = stageTerpenuhi === stageData.items.length;
+              // Keputusan Dinkes per stage (dari keputusan_per_stage backend)
+              const kps = (assessment as any).keputusan_per_stage ?? (assessment as any).stageVerifications ?? {};
+              const dinkesDecision: 'sesuai' | 'belum' | undefined = kps[stageNum];
+              const headerBg = dinkesDecision === 'sesuai' ? '#E8F7EF' : dinkesDecision === 'belum' ? '#FEF2F2' : (isAll ? '#E8F7EF' : 'var(--surface2)');
+              const temuanStage = ((assessment as any).temuan_per_stage ?? (assessment as any).fieldFindings ?? {})[stageNum];
+              return (
+                <div key={stageNum}>
+                  <div style={{
+                    padding: '9px 24px',
+                    background: headerBg,
+                    borderTop: '1px solid var(--border)',
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px',
+                  }}>
+                    <span style={{ fontSize: '13px', fontWeight: 700, color: dinkesDecision === 'sesuai' ? '#15804D' : dinkesDecision === 'belum' ? '#DC2626' : 'var(--text)' }}>
+                      {stageData.title}
+                    </span>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                      <span style={{
+                        fontSize: '12px', fontWeight: 700,
+                        padding: '3px 12px', borderRadius: '20px',
+                        background: isAll ? '#15804D' : 'var(--surface)',
+                        color: isAll ? 'white' : 'var(--text3)',
+                        border: isAll ? 'none' : '1px solid var(--border2)',
+                        display: 'inline-flex', alignItems: 'center', gap: '6px',
+                      }}>
+                        {stageTerpenuhi}/{stageData.items.length} terpenuhi
+                        <span style={{ fontWeight: 700 }}>
+                          ({Math.round(stageTerpenuhi / stageData.items.length * 100)}%)
+                        </span>
+                      </span>
+                      {/* Badge keputusan Dinkes */}
+                      {dinkesDecision && (
+                        <span style={{
+                          fontSize: '11px', fontWeight: 700,
+                          padding: '3px 10px', borderRadius: '20px',
+                          background: dinkesDecision === 'sesuai' ? '#15804D' : '#DC2626',
+                          color: 'white',
+                        }}>
+                          {dinkesDecision === 'sesuai' ? '✓ Dinkes: Sudah Sesuai' : '✕ Dinkes: Belum Memenuhi'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {/* Temuan lapangan Dinkes untuk stage ini */}
+                  {temuanStage && (
+                    <div style={{ padding: '8px 24px', background: '#FEF9EF', borderTop: '1px solid var(--border)' }}>
+                      <span style={{ fontSize: '10px', fontWeight: 700, color: '#D97706', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '3px' }}>Temuan Lapangan Dinkes</span>
+                      <div style={{ fontSize: '12px', color: 'var(--text2)', lineHeight: 1.6 }}>{temuanStage}</div>
+                    </div>
+                  )}
+                  {stageData.items.map((item, idx) => {
+                    const fulfilled = isTerpenuhi(stageNum, idx, assessment);
+                    return (
+                      <div key={item.id} style={{
+                        display: 'flex', alignItems: 'flex-start', gap: '14px',
+                        padding: '13px 24px',
+                        borderTop: '1px solid var(--border)',
+                        background: 'var(--surface)',
+                      }}>
+                        <div style={{
+                          width: '28px', height: '28px', borderRadius: '50%', flexShrink: 0,
+                          background: fulfilled ? '#15804D' : 'var(--surface2)',
+                          border: `2px solid ${fulfilled ? '#15804D' : 'var(--border2)'}`,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          color: fulfilled ? 'white' : 'var(--text3)', fontSize: '13px', fontWeight: 700,
+                        }}>
+                          {fulfilled ? '✓' : '✗'}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: '13px', color: 'var(--text)', lineHeight: 1.55, marginBottom: '5px' }}>{item.text}</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                            <span style={{
+                              fontSize: '11px', fontWeight: 600,
+                              padding: '2px 10px', borderRadius: '20px',
+                              background: fulfilled ? '#E8F7EF' : 'var(--surface2)',
+                              color: fulfilled ? '#15804D' : 'var(--text3)',
+                            }}>
+                              {fulfilled ? 'Terpenuhi' : 'Belum Terpenuhi'}
+                            </span>
+                            <span style={{ fontSize: '11px', color: 'var(--text3)' }}>
+                              Bukti: <em style={{ color: fulfilled ? 'var(--text2)' : 'var(--text3)' }}>{fulfilled ? item.buktiHint : '—'}</em>
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Temuan Lapangan per Stage */}
+          {(assessment.stageVerifications || assessment.fieldFindings) && (
+            <div style={{ borderBottom: '1px solid var(--border)' }}>
+              <div style={{ padding: '12px 24px 8px', fontSize: '13px', fontWeight: 700, color: 'var(--text)' }}>
+                Hasil Verifikasi Lapangan per Stage
+              </div>
+              {stageRange.map(stageNum => {
+                const stageData = EMRAM_INDICATORS[stageNum];
+                if (!stageData) return null;
+                const dec = assessment.stageVerifications?.[stageNum];
+                const temuan = assessment.fieldFindings?.[stageNum];
+                if (!dec && !temuan) return null;
+                return (
+                  <div key={stageNum} style={{ borderTop: '1px solid var(--border)', padding: '12px 24px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: temuan ? '8px' : 0 }}>
+                      <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text)' }}>{stageData.title}</span>
+                      {dec && (
+                        <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 10px', borderRadius: '20px', background: dec === 'sesuai' ? '#E8F7EF' : '#FEF2F2', color: dec === 'sesuai' ? '#15804D' : '#DC2626' }}>
+                          {dec === 'sesuai' ? '✓ Sudah Sesuai' : '✕ Belum Memenuhi'}
+                        </span>
+                      )}
+                    </div>
+                    {temuan && (
+                      <div style={{ fontSize: '12px', color: 'var(--text2)', background: 'var(--surface2)', borderRadius: '8px', padding: '10px 12px', lineHeight: 1.6 }}>
+                        <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '4px' }}>Temuan Lapangan</span>
+                        {temuan}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              {assessment.catatanKoordinasi && (
+                <div style={{ borderTop: '1px solid var(--border)', padding: '12px 24px' }}>
+                  <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Catatan Koordinasi</div>
+                  <div style={{ fontSize: '13px', color: 'var(--text2)', lineHeight: 1.65, background: 'var(--accent-light)', borderRadius: '8px', padding: '10px 12px' }}>{assessment.catatanKoordinasi}</div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Catatan dari Faskes */}
+          {assessment.hospitalNotes && (
+            <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Catatan dari Faskes</div>
+              <div style={{ fontSize: '13px', color: 'var(--text2)', lineHeight: 1.65, background: 'var(--surface2)', borderRadius: '8px', padding: '12px 14px' }}>{assessment.hospitalNotes}</div>
+            </div>
+          )}
+
+          {/* Catatan Verifikasi Dinkes */}
+          {assessment.reviewerComments && (
+            <div style={{ padding: '16px 24px' }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: disetujui ? '#15804D' : 'var(--danger)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Catatan Verifikasi Dinkes</div>
+              <div style={{
+                fontSize: '13px', color: 'var(--text2)', lineHeight: 1.65,
+                background: disetujui ? '#E8F7EF' : 'var(--danger-light)',
+                border: `1px solid ${disetujui ? '#9DDBBA' : 'var(--danger)'}`,
+                borderRadius: '8px', padding: '12px 14px',
+              }}>{assessment.reviewerComments}</div>
+            </div>
+          )}
+        </div>
+
+        <div style={{ padding: '12px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', flexShrink: 0 }}>
+          <button onClick={onClose} className="simari-btn simari-btn-outline">Tutup</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Main Dashboard ────────────────────────────────────────────────────────────
+export function SimariDinkesDashboard() {
+  const { user, logout } = useAuth();
+  const {
+    assessments: allAssessments,
+    getAssessmentsByRegion,
+    reviewAssessment,
+    rejectAssessment,
+    updateAssessment,
+    refreshAssessments,
+  } = useAssessments();
+  const [currentPage, setCurrentPage] = useState('dashboard');
+
+
+
+  const [laporanAssessment, setLaporanAssessment] = useState<AssessmentExt | null>(null);
+  const [verifikasiSearch, setVerifikasiSearch] = useState('');
+  const [verifikasiTab, setVerifikasiTab] = useState<'menunggu' | 'disetujui' | 'dikembalikan' | 'semua'>('menunggu');
+  const [riwayatSearch, setRiwayatSearch] = useState('');
+
+  // Verification modal state
+  const [verifikasiModal, setVerifikasiModal] = useState<AssessmentExt | null>(null);
+  const [openedVerifikasi, setOpenedVerifikasi] = useState<Set<string>>(() => {
+    const all = getAssessmentsByRegion((user as any)?.regionId ?? '');
+    return new Set(all.filter(a => a.status === 'under_review').map(a => a.id));
+  });
+
+  // Fix: gunakan ?? untuk regionId yang mungkin undefined
+  const regionId = (user as any)?.regionId ?? '';
+  const region = mockRegions.find((r) => r.id === regionId);
+
+  // ── Data Hospital dari Backend ──────────────────────────────
+  const [dbHospitals, setDbHospitals] = useState<any[]>([]);
+  const refreshHospitals = () => {
+    hospitalApi.getAll().then((res: any) => {
+      const list = Array.isArray(res) ? res : (res.data ?? []);
+      setDbHospitals(list);
+    }).catch(() => {});
+  };
+  useEffect(() => { refreshHospitals(); }, []);
+
+  // Provinsi yang ditangani dinkes ini
+  const provinsiLabel = 'DI Yogyakarta';
+
+  // ── Helper: konversi persentase skor → nomor stage tertinggi yang terpenuhi ──
+  // Dipakai di regionalFaskes dan tempat lain
+  const pctToStage = (pct: number | null | undefined): number => {
+    if (!pct || pct <= 0) return 0;
+    const cumul: Record<number, number> = { 0: 3, 1: 6, 2: 12, 3: 18, 4: 23, 5: 27, 6: 34, 7: 39 };
+    const indicatorCount = Math.round(pct / 100 * 39);
+    let stage = 0;
+    for (let s = 0; s <= 7; s++) {
+      if (indicatorCount >= (cumul[s] ?? 99)) stage = s; else break;
+    }
+    return Math.min(7, Math.max(0, stage));
+  };
+
+  // ── Gabungkan data faskes statis dengan data assessment terbaru dari DB ──
+  // SUMBER KEBENARAN STAGE: keputusan_per_stage dari assessment terakhir yang diverifikasi
+  // (BUKAN dari hospitals.current_emram_stage yang bisa stale/salah)
+  const regionalFaskes = useMemo(() => {
+    const base = allFaskes.filter(f => f.provinsi === provinsiLabel);
+    return base.map(f => {
+      const fNama = f.nama.toLowerCase();
+
+      // Semua assessment untuk faskes ini, diurutkan: verified dulu, lalu terbaru
+      const hospAssessments = allAssessments
+        .filter((a: any) => {
+          const aName = (a.hospitalName ?? '').toLowerCase();
+          return aName.length > 3 && (aName.includes(fNama) || fNama.includes(aName));
+        })
+        .sort((a: any, b: any) => {
+          const pri: Record<string, number> = { validated: 0, reviewed: 1, under_review: 2, submitted: 3, rejected: 4, draft: 5 };
+          const pa = pri[a.status] ?? 9;
+          const pb = pri[b.status] ?? 9;
+          if (pa !== pb) return pa - pb;
+          const ta = new Date(b.reviewedAt ?? b.submittedAt ?? b.createdAt ?? 0).getTime();
+          const tb = new Date(a.reviewedAt ?? a.submittedAt ?? a.createdAt ?? 0).getTime();
+          return ta - tb;
+        });
+
+      const verifiedA = hospAssessments.find((a: any) => a.status === 'reviewed' || a.status === 'validated');
+      const latestA   = hospAssessments[0];
+
+      // ── Hitung stageEMRAM dari keputusan_per_stage verifikasi terakhir ──
+      let computedStage: number = f.stageEMRAM; // fallback data statis
+      if (verifiedA) {
+        const kps = (verifiedA as any).keputusan_per_stage as Record<string | number, string> | undefined;
+        if (kps && Object.keys(kps).length > 0) {
+          // Cari stage BERURUTAN dari 0 yang semuanya "sesuai"
+          let highestValid = -1;
+          for (let s = 0; s <= 7; s++) {
+            const key_s = String(s);
+            const val = kps[s] ?? kps[key_s];
+            if (val === 'sesuai') highestValid = s; else break;
+          }
+          computedStage = highestValid >= 0 ? highestValid : 0;
+        } else if ((verifiedA as any).totalScore != null) {
+          computedStage = pctToStage((verifiedA as any).totalScore);
+        }
+      } else if (dbHospitals.length > 0) {
+        // Fallback: hospitals table (jika belum ada assessment verified)
+        const dbH = dbHospitals.find((h: any) =>
+          (h.name?.toLowerCase() ?? '').includes(fNama) || fNama.includes(h.name?.toLowerCase() ?? '')
+        );
+        if (dbH && dbH.current_emram_stage != null) {
+          computedStage = Math.min(7, Math.max(0, Number(dbH.current_emram_stage)));
+        }
+      }
+
+      const safeStage = Math.min(7, Math.max(0, computedStage)) as 0|1|2|3|4|5|6|7;
+
+      // ── Status label ──
+      let statusLabel: 'Tervalidasi' | 'Dalam Review' | 'Draft' | 'Belum' = f.statusAssessment;
+      if (verifiedA) statusLabel = 'Tervalidasi';
+      else if (latestA?.status === 'submitted' || latestA?.status === 'under_review') statusLabel = 'Dalam Review';
+      else if (latestA?.status === 'rejected') statusLabel = 'Belum';
+      else if (latestA?.status === 'draft') statusLabel = 'Draft';
+
+      // ── Tanggal assessment ──
+      const dbH2 = dbHospitals.find((h: any) =>
+        (h.name?.toLowerCase() ?? '').includes(fNama) || fNama.includes(h.name?.toLowerCase() ?? '')
+      );
+      const tglAssessment = verifiedA?.reviewedAt
+        ? safeISODate(verifiedA.reviewedAt, f.tanggalAssessment)
+        : dbH2?.last_assessment_date
+          ? safeISODate(dbH2.last_assessment_date, f.tanggalAssessment)
+          : latestA?.submittedAt
+            ? safeISODate(latestA.submittedAt, f.tanggalAssessment)
+            : f.tanggalAssessment;
+
+      return {
+        ...f,
+        stageEMRAM:        safeStage,
+        tempatTidur:       dbH2?.bed_capacity ?? f.tempatTidur,
+        tanggalAssessment: tglAssessment,
+        statusAssessment:  statusLabel,
+      };
+    });
+  }, [allFaskes, dbHospitals, allAssessments, provinsiLabel]);
+
+  // Metrik beranda: pakai regionalFaskes (sudah gabungan backend+static)
+  const regionalHospitals = regionalFaskes; // alias untuk kompabilitas kode lama
+
+  const regionalAssessments = allAssessments;  // FIX v4: tidak pakai regionId yang undefined
+
+  // Semua assessment yang sudah pernah dikirim RS (untuk semua tab halaman verifikasi)
+  const allSentAssessments = regionalAssessments.filter(
+    (a) => a.status === 'submitted' || a.status === 'under_review' ||
+           a.status === 'reviewed' || a.status === 'validated' || a.status === 'rejected'
+  );
+  const antrianVerifikasi = regionalAssessments.filter(
+    (a) => a.status === 'submitted' || a.status === 'under_review'
+  );
+  const riwayatVerifikasi = regionalAssessments.filter(
+    (a) => a.status === 'reviewed' || a.status === 'under_validation' || a.status === 'validated' || a.status === 'rejected'
+  );
+
+  // Metrik untuk card Beranda
+  const avgStage = regionalFaskes.length > 0
+    ? (regionalFaskes.reduce((s, f) => s + f.stageEMRAM, 0) / regionalFaskes.length).toFixed(1)
+    : '0';
+  const maxStageRS = regionalFaskes.reduce<typeof regionalFaskes[0] | undefined>(
+    (best, f) => f.stageEMRAM > (best?.stageEMRAM ?? -1) ? f : best, undefined
+  );
+
+
+
+  const filteredAntrian = useMemo(() => {
+    if (!verifikasiSearch) return antrianVerifikasi;
+    return antrianVerifikasi.filter(a =>
+      (a.hospitalName || '').toLowerCase().includes(verifikasiSearch.toLowerCase()) ||
+      a.id.toLowerCase().includes(verifikasiSearch.toLowerCase())
+    );
+  }, [antrianVerifikasi, verifikasiSearch]);
+
+  const filteredRiwayat = useMemo(() => {
+    if (!riwayatSearch) return riwayatVerifikasi;
+    return riwayatVerifikasi.filter(a => (a.hospitalName || '').toLowerCase().includes(riwayatSearch.toLowerCase()));
+  }, [riwayatVerifikasi, riwayatSearch]);
+
+  const handleMulaiVerifikasi = (assessment: AssessmentExt) => {
+    setOpenedVerifikasi(prev => new Set([...prev, assessment.id]));
+    if (assessment.status === 'submitted') {
+      updateAssessment(assessment.id, { status: 'under_review' });
+    }
+    // Jika sudah under_review (pernah dibuka dan di-X), langsung ke step 2
+    setVerifikasiModal({
+      ...assessment,
+      // Tandai agar VerifikasiDetailModal buka di step 2
+      _resumeStep: assessment.status === 'under_review' ? 2 : 1,
+    } as any);
+  };
+
+  const handleFinishVerifikasi = (
+    id: string,
+    keputusan: 'setujui' | 'kembalikan',
+    catatan: string,
+    extra: VerificationExtra
+  ) => {
+    // Bersihkan null dari stageVerifications agar sesuai tipe Record<number, string>
+    const stageVerifClean: Record<number, string> = {};
+    Object.entries(extra.stageVerifications ?? {}).forEach(([k, v]) => {
+      if (v !== null) stageVerifClean[Number(k)] = v;
+    });
+
+    const extraPayload = {
+      pic_dinkes:          extra.picDinkes,
+      tanggal_kunjungan:   extra.tanggalKunjungan,
+      temuan_per_stage:    extra.fieldFindings,
+      keputusan_per_stage: stageVerifClean,
+      catatan_kunjungan:   extra.catatanKoordinasi,
+      keputusan_akhir:     keputusan === 'setujui' ? 'setujui' : 'kembalikan',
+      catatan_akhir:       catatan,
+      // stage_result tidak perlu dikirim eksplisit — backend hitung dari keputusan_per_stage
+    };
+    if (keputusan === 'setujui') {
+      reviewAssessment(id, catatan, user?.name || '', extraPayload).then(() => {
+        // Refresh hospitals table agar stage di dashboard langsung terupdate
+        refreshHospitals();
+      });
+    } else {
+      rejectAssessment(id, catatan, extraPayload).then(() => {
+        refreshHospitals();
+      });
+    }
+    setVerifikasiModal(null);
+  };
+
+
+
+  const inputStyle: React.CSSProperties = {
+    fontSize: '12px', padding: '6px 10px', borderRadius: '6px',
+    border: '1px solid var(--border2)', background: 'var(--surface)',
+    color: 'var(--text)', fontFamily: "'Plus Jakarta Sans', sans-serif",
+    outline: 'none',
+  };
+
+  const statusVerifikasi: Record<string, { label: string; color: string; bg: string }> = {
+    submitted:         { label: 'Menunggu Tinjauan',     color: '#D97706', bg: '#FEF3C7' },
+    under_review:      { label: 'Dalam Tinjauan',        color: '#2563EB', bg: '#EFF6FF' },
+    reviewed:          { label: 'Selesai Diverifikasi',  color: '#15804D', bg: '#F0FDF4' },
+    under_validation:  { label: 'Dikirim ke Kemenkes',   color: '#7C3AED', bg: '#F5F3FF' },
+    validated:         { label: 'Tervalidasi',           color: '#15804D', bg: '#F0FDF4' },
+    rejected:          { label: 'Dikembalikan',          color: '#DC2626', bg: '#FEF2F2' },
+  };
+
+  return (
+    <div className="simari-app">
+      <Sidebar currentPage={currentPage} onPageChange={setCurrentPage} onLogout={logout} />
+
+      {laporanAssessment && (
+        <LaporanVerifikasiModal assessment={laporanAssessment} onClose={() => setLaporanAssessment(null)} />
+      )}
+      {verifikasiModal && (
+        <VerifikasiDetailModal
+          assessment={verifikasiModal}
+          onClose={() => setVerifikasiModal(null)}
+          onFinish={handleFinishVerifikasi}
+          initialStep={(verifikasiModal as any)._resumeStep ?? (verifikasiModal.status === 'under_review' ? 2 : 1)}
+        />
+      )}
+
+      <main className="simari-main">
+        {currentPage === 'pengaturan' && <PengaturanAkses onLogout={logout} />}
+
+        {/* ── INSTRUMEN EMRAM (Dinkes) ── */}
+        {currentPage === 'instrumen-emram' && <InstrumenManager />}
+
+        {/* ── DASHBOARD ── */}
+        {currentPage === 'dashboard' && (
+          <div className="page-content">
+            <div className="page-header">
+              <h1>Selamat datang, {user?.name?.split(' ')[0]}</h1>
+              <p>Monitoring kematangan RME faskes di {region?.name}</p>
+            </div>
+
+            <div className="grid-4 mb-20">
+              <div className="metric-card">
+                <div className="metric-label">Total Faskes</div>
+                <div className="metric-value">{regionalFaskes.length}</div>
+                <div className="metric-change text-muted">Di wilayah {region?.name ?? provinsiLabel}</div>
+              </div>
+              <div className="metric-card">
+                <div className="metric-label">Rata-rata Stage</div>
+                <div className="metric-value">{avgStage}</div>
+                <div className="metric-change text-muted">EMRAM regional</div>
+              </div>
+              <div className="metric-card">
+                <div className="metric-label">Selesai Diverifikasi</div>
+                <div className="metric-value">{riwayatVerifikasi.length}</div>
+                <div className="metric-change text-muted">Total riwayat</div>
+              </div>
+              <div className="metric-card">
+                <div className="metric-label">Stage Tertinggi</div>
+                <div className="metric-value">{maxStageRS?.stageEMRAM ?? '—'}</div>
+                <div className="metric-change text-muted" style={{ fontSize: '10px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {maxStageRS?.nama}
+                </div>
+              </div>
+            </div>
+
+            <AnalisisKematangan
+              faskes={regionalFaskes}
+              embedded
+              chartsOnly
+              hideMetrics
+            />
+
+            <div className="simari-card mb-20">
+              <div className="card-title" style={{ marginBottom: '16px' }}>
+                Peta Faskes — {region?.name ?? provinsiLabel}
+              </div>
+              <PetaProvinsi faskes={regionalFaskes} provinsiLabel={region?.name} />
+            </div>
+
+          </div>
+        )}
+
+        {/* ── DATA FASKES REGIONAL ── */}
+        {currentPage === 'faskes-regional' && (
+          <AnalisisKematangan
+            faskes={regionalFaskes}
+            judul={`Data Faskes Regional — DI Yogyakarta`}
+            subtitle={`Direktori fasilitas kesehatan di wilayah Provinsi DI Yogyakarta (${regionalFaskes.length} faskes)`}
+            hideMetrics
+            hideCharts
+          />
+        )}
+
+      {/* ── ANTRIAN VERIFIKASI (3-Step Modal) ── */}
+      {currentPage === 'verifikasi' && (() => {
+        const tabDefs: { key: 'menunggu' | 'disetujui' | 'dikembalikan' | 'semua'; label: string; statuses: string[] }[] = [
+          { key: 'menunggu',    label: 'Menunggu Verifikasi', statuses: ['submitted', 'under_review'] },
+          { key: 'disetujui',   label: 'Disetujui',           statuses: ['reviewed', 'validated'] },
+          { key: 'dikembalikan',label: 'Dikembalikan',        statuses: ['rejected'] },
+          { key: 'semua',       label: 'Semua',               statuses: ['submitted','under_review','reviewed','validated','rejected'] },
+        ];
+        const tabItems = allSentAssessments.filter(a =>
+          tabDefs.find(t => t.key === verifikasiTab)!.statuses.includes(a.status)
+        );
+        const searchFiltered = verifikasiSearch
+          ? tabItems.filter(a =>
+              (a.hospitalName || '').toLowerCase().includes(verifikasiSearch.toLowerCase()) ||
+              a.id.toLowerCase().includes(verifikasiSearch.toLowerCase())
+            )
+          : tabItems;
+
+        const statusCfg: Record<string, { label: string; color: string; bg: string }> = {
+          submitted:    { label: 'Menunggu Tinjauan', color: '#D97706', bg: '#FEF3C7' },
+          under_review: { label: 'Dalam Tinjauan',   color: '#2563EB', bg: '#EFF6FF' },
+          reviewed:     { label: 'Disetujui',        color: '#15804D', bg: '#F0FDF4' },
+          validated:    { label: 'Disetujui',        color: '#15804D', bg: '#F0FDF4' },
+          rejected:     { label: 'Dikembalikan',     color: '#DC2626', bg: '#FEF2F2' },
+        };
+
+        return (
+          <div className="page-content">
+            <div className="page-header">
+              <h1>Antrian Verifikasi</h1>
+              <p>Tinjau dan verifikasi assessment yang dikirimkan oleh Rumah Sakit</p>
+            </div>
+
+            {/* Tabs + Refresh */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {tabDefs.map(tab => {
+                  const count = allSentAssessments.filter(a => tab.statuses.includes(a.status)).length;
+                  const active = verifikasiTab === tab.key;
+                  return (
+                    <button
+                      key={tab.key}
+                      onClick={() => setVerifikasiTab(tab.key)}
+                      style={{
+                        padding: '7px 16px', borderRadius: '8px', cursor: 'pointer',
+                        border: active ? 'none' : '1px solid var(--border2)',
+                        background: active ? 'var(--accent)' : 'var(--surface)',
+                        color: active ? 'white' : 'var(--text2)',
+                        fontSize: '13px', fontWeight: active ? 700 : 500,
+                        fontFamily: "'Plus Jakarta Sans', sans-serif",
+                        display: 'inline-flex', alignItems: 'center', gap: '6px',
+                        transition: 'all 0.15s',
+                      }}
+                    >
+                      {tab.label}
+                      <span style={{
+                        minWidth: '20px', height: '20px', borderRadius: '10px', display: 'inline-flex',
+                        alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700,
+                        background: active ? 'rgba(255,255,255,0.25)' : 'var(--surface2)',
+                        color: active ? 'white' : 'var(--text3)',
+                        padding: '0 5px',
+                      }}>
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              <button
+                onClick={() => refreshAssessments()}
+                style={{
+                  padding: '7px 16px', borderRadius: '8px', border: '1px solid var(--border2)',
+                  background: 'var(--surface)', color: 'var(--text2)', fontSize: '13px',
+                  fontWeight: 600, cursor: 'pointer', fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  display: 'inline-flex', alignItems: 'center', gap: '6px',
+                }}
+              >
+                ↻ Refresh
+              </button>
+            </div>
+
+            {/* Search bar */}
+            <div style={{ marginBottom: '16px' }}>
+              <input
+                placeholder="Cari nama faskes atau ID assessment..."
+                value={verifikasiSearch}
+                onChange={e => setVerifikasiSearch(e.target.value)}
+                style={{
+                  width: '100%', padding: '8px 14px', borderRadius: '8px', boxSizing: 'border-box',
+                  border: '1px solid var(--border2)', background: 'var(--surface)',
+                  fontSize: '13px', color: 'var(--text)', fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  outline: 'none',
+                }}
+              />
+            </div>
+
+            {/* Assessment list */}
+            {searchFiltered.length === 0 ? (
+              <div className="simari-card" style={{ textAlign: 'center', padding: '60px 20px' }}>
+                <FileText size={40} color="var(--text3)" style={{ margin: '0 auto 12px' }} />
+                <p style={{ color: 'var(--text3)', fontSize: '14px', marginBottom: '4px' }}>
+                  Tidak ada assessment dengan status ini.
+                </p>
+                {verifikasiTab === 'menunggu' && (
+                  <p style={{ color: 'var(--text3)', fontSize: '12px' }}>
+                    Assessment akan muncul di sini setelah Rumah Sakit menekan tombol "Kirim ke Dinkes"
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {/* Column header */}
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: '2fr 1fr 80px 200px 150px',
+                  gap: '12px', padding: '8px 20px',
+                  fontSize: '11px', fontWeight: 700, color: 'var(--text3)',
+                  textTransform: 'uppercase', letterSpacing: '0.06em',
+                  borderBottom: '1px solid var(--border)',
+                }}>
+                  <span>Fasilitas Kesehatan</span>
+                  <span>Target Stage</span>
+                  <span>Skor</span>
+                  <span>Status</span>
+                  <span style={{ textAlign: 'right' }}>Aksi</span>
+                </div>
+
+                {searchFiltered.map(item => {
+                  const a = item as AssessmentExt;
+                  const isOpened = openedVerifikasi.has(a.id);
+                  // Hitung skor terverifikasi: tampil — jika belum selesai, tampil % jika sudah
+                  const aVerifiedScore = calcVerifiedScore(
+                    (a as any).keputusan_per_stage,
+                    a.status,
+                    (a as any).totalScore ?? (a as any).stage_result_pct ?? null
+                  );
+                  const sCfg = statusCfg[a.status] ?? { label: a.status, color: 'var(--text3)', bg: 'var(--surface2)' };
+                  const isDone = a.status === 'reviewed' || a.status === 'validated' || a.status === 'rejected';
+                  return (
+                    <div key={a.id} className="simari-card" style={{ padding: '16px 20px' }}>
+                      <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: '2fr 1fr 80px 200px 150px',
+                        gap: '12px', alignItems: 'center',
+                      }}>
+                        {/* Faskes info */}
+                        <div>
+                          <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text)', marginBottom: '3px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div style={{ width: 34, height: 34, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: '#ECFDF5', borderRadius: 8 }}>
+                              <Home size={18} color="#15804D" />
+                            </div>
+                            <div>{a.hospitalName}</div>
+                          </div>
+                          <div style={{ fontSize: '12px', color: 'var(--text3)', lineHeight: 1.5 }}>
+                            {a.periode && <><strong style={{ color: 'var(--text2)' }}>Periode: {a.periode}</strong> · </>}
+                            {(a as any).vendor_simrs && <>Vendor: {(a as any).vendor_simrs}</>}
+                          </div>
+                          {(a.koordinatorName || (a as any).pic_name) && (
+                            <div style={{ fontSize: '12px', color: 'var(--text3)' }}>
+                              PIC: {a.koordinatorName || (a as any).pic_name}
+                              {(a.koordinatorEmail || (a as any).pic_email) &&
+                                <> ({a.koordinatorEmail || (a as any).pic_email})</>}
+                            </div>
+                          )}
+                          {a.submittedAt && (
+                            <div style={{ fontSize: '11px', color: 'var(--text3)', marginTop: '2px' }}>
+                              Dikirim: {safeDateTimeStr(a.submittedAt)}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Target Stage */}
+                        <div>
+                          <span className={`stage-badge stage-s${Math.min(7, Math.max(0, Number(a.targetStage)||0))}`}>
+                            Stage {Math.min(7, Math.max(0, Number(a.targetStage)||0))}
+                          </span>
+                        </div>
+
+                        {/* Skor — tampil strip jika belum selesai verifikasi */}
+                        <div>
+                          <span style={{
+                            fontSize: '16px', fontWeight: 800,
+                            color: aVerifiedScore === null
+                              ? 'var(--text3)'
+                              : aVerifiedScore >= 70
+                                ? 'var(--accent)'
+                                : aVerifiedScore >= 50
+                                  ? '#D97706'
+                                  : 'var(--danger)',
+                          }}>
+                            {aVerifiedScore === null ? '—' : `${aVerifiedScore}%`}
+                          </span>
+                        </div>
+
+                        {/* Status badge */}
+                        <div>
+                          <span style={{
+                            fontSize: '12px', fontWeight: 600, padding: '4px 12px',
+                            borderRadius: '20px', background: sCfg.bg, color: sCfg.color,
+                            display: 'inline-flex', alignItems: 'center', gap: '4px',
+                          }}>
+                            {a.status === 'reviewed' || a.status === 'validated' ? '✅ ' : a.status === 'rejected' ? '↩ ' : ''}
+                            {sCfg.label}
+                          </span>
+                        </div>
+
+                        {/* Aksi */}
+                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                          {isDone ? (
+                            <button
+                              onClick={() => setLaporanAssessment(a)}
+                              style={{
+                                padding: '7px 16px', borderRadius: '8px',
+                                border: '1px solid var(--border2)', background: 'var(--surface2)',
+                                color: 'var(--text2)', fontSize: '12px', fontWeight: 600,
+                                cursor: 'pointer', fontFamily: "'Plus Jakarta Sans', sans-serif",
+                              }}
+                            >
+                              📄 Lihat BA
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleMulaiVerifikasi(a)}
+                              style={{
+                                padding: '8px 18px', borderRadius: '8px', border: 'none',
+                                background: 'var(--accent)', color: 'white', fontSize: '13px',
+                                fontWeight: 700, cursor: 'pointer',
+                                fontFamily: "'Plus Jakarta Sans', sans-serif",
+                                display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              ▶ {isOpened ? 'LANJUTKAN' : 'MULAI'}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Info alur */}
+            <div style={{
+              marginTop: '28px', background: 'var(--accent-light)',
+              border: '1px solid var(--accent)', borderRadius: '10px', padding: '16px 20px',
+            }}>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--accent)', marginBottom: '10px' }}>
+                Alur Verifikasi Dinkes
+              </div>
+              {[
+                { n: '1', t: 'Tinjau Laporan', d: '— Periksa skor, indikator EMRAM, dan catatan faskes. Acc atau kembalikan laporan.' },
+                { n: '2', t: 'Kunjungi RS',    d: '— Catat jadwal dan temuan kunjungan verifikasi lapangan.' },
+                { n: '3', t: 'Keputusan & Berita Acara', d: '— Tetapkan keputusan akhir dan terbitkan berita acara resmi.' },
+              ].map(s => (
+                <div key={s.n} style={{ fontSize: '13px', color: 'var(--text2)', marginBottom: '4px' }}>
+                  <strong>{s.n}. {s.t}</strong>{s.d}
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
+        {/* ── RIWAYAT VERIFIKASI ── */}
+        {currentPage === 'riwayat-verifikasi' && (
+          <div className="page-content">
+            <div className="page-header">
+              <h1>Riwayat Verifikasi</h1>
+              <p>Assessment dari faskes DIY yang telah selesai diproses oleh Dinkes</p>
+            </div>
+
+            <div className="grid-4 mb-20">
+              {[
+                { label: 'Total Diverifikasi', count: riwayatVerifikasi.length, color: 'var(--text)' },
+                { label: 'Disetujui', count: riwayatVerifikasi.filter(a => a.status === 'reviewed' || a.status === 'validated').length, color: 'var(--accent)' },
+                { label: 'Dikembalikan', count: riwayatVerifikasi.filter(a => a.status === 'rejected').length, color: 'var(--danger)' },
+                { label: 'Rata-rata Skor', count: riwayatVerifikasi.length > 0 ? Math.round(riwayatVerifikasi.reduce((s, a) => s + (calcVerifiedScore((a as any).keputusan_per_stage, a.status, (a as any).totalScore ?? null) ?? calcEmramScoreByStage(a.targetStage ?? a.currentStage ?? 0)), 0) / riwayatVerifikasi.length) : 0, color: 'var(--text)', suffix: '%' },
+              ].map(s => (
+                <div key={s.label} className="metric-card">
+                  <div className="metric-label">{s.label}</div>
+                  <div className="metric-value" style={{ color: s.color }}>{s.count}{(s as { suffix?: string }).suffix ?? ''}</div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <input placeholder="Cari nama faskes…" value={riwayatSearch} onChange={e => setRiwayatSearch(e.target.value)} style={{ ...inputStyle, minWidth: '280px' }} />
+            </div>
+
+            {filteredRiwayat.length === 0 ? (
+              <div className="simari-card" style={{ textAlign: 'center', padding: '60px 20px' }}>
+                <History size={36} color="var(--text3)" style={{ margin: '0 auto 12px' }} />
+                <p style={{ color: 'var(--text3)', fontSize: '14px' }}>Belum ada riwayat verifikasi.</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {filteredRiwayat.map(item => {
+                  const a = item as AssessmentExt; // Tambahkan deklarasi ini
+                  const sv = statusVerifikasi[a.status] ?? statusVerifikasi.reviewed;
+                  const disetujui = a.status === 'reviewed' || a.status === 'validated' || a.status === 'under_validation';
+                  const aVerifiedScoreRiwayat = calcVerifiedScore(
+                    (a as any).keputusan_per_stage,
+                    a.status,
+                    (a as any).totalScore ?? (a as any).stage_result_pct ?? null
+                  );
+                  return (
+                    <div key={a.id} className="simari-card" style={{ padding: '18px 20px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+                        <div>
+                          <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text)', marginBottom: '4px' }}>{a.hospitalName}</div>
+                          <div style={{ fontSize: '12px', color: 'var(--text3)' }}>
+                            Tgl Verifikasi: {safeDateLong(a.reviewedAt)}
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '11px', fontWeight: 600, color: sv.color, background: sv.bg, padding: '3px 10px', borderRadius: '20px' }}>{sv.label}</span>
+                          <span style={{ fontSize: '11px', fontWeight: 700, padding: '3px 10px', borderRadius: '20px', background: disetujui ? 'var(--accent-light)' : 'var(--danger-light)', color: disetujui ? 'var(--accent)' : 'var(--danger)' }}>
+                            {disetujui ? '✓ Disetujui' : '✕ Dikembalikan'}
+                          </span>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '12px' }}>
+                        <div>
+                          <div style={{ fontSize: '11px', color: 'var(--text3)', marginBottom: '2px' }}>Stage Target</div>
+                          <span className={`stage-badge stage-s${Math.min(7, Math.max(0, Number(a.targetStage)||0))}`}>Stage {Math.min(7, Math.max(0, Number(a.targetStage)||0))}</span>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '11px', color: 'var(--text3)', marginBottom: '2px' }}>Skor</div>
+                          <span style={{ fontSize: '16px', fontWeight: 700, color: aVerifiedScoreRiwayat === null ? 'var(--text3)' : aVerifiedScoreRiwayat >= 70 ? 'var(--accent)' : 'var(--warn)' }}>{aVerifiedScoreRiwayat === null ? '—' : `${aVerifiedScoreRiwayat}%`}</span>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '11px', color: 'var(--text3)', marginBottom: '2px' }}>Tgl Pengajuan</div>
+                          <span style={{ fontSize: '12px', color: 'var(--text2)' }}>{safeDateStr(a.submittedAt)}</span>
+                        </div>
+                      </div>
+                      {a.reviewerComments && (
+                        <div style={{ background: 'var(--surface2)', borderRadius: '8px', padding: '10px 14px', fontSize: '12px', color: 'var(--text2)', lineHeight: 1.6 }}>
+                          <span style={{ fontWeight: 700, color: 'var(--text3)', marginRight: '6px' }}>Catatan Verifikasi:</span>
+                          {a.reviewerComments}
+                        </div>
+                      )}
+                      <div style={{ marginTop: '12px', display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                        <button className="simari-btn simari-btn-outline" style={{ padding: '5px 12px', fontSize: '11px', display: 'inline-flex', alignItems: 'center', gap: '5px' }} onClick={() => setLaporanAssessment(a)}>
+                          <FileText size={12} /> Lihat Laporan
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}

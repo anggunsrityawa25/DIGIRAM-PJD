@@ -1,0 +1,2226 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<tDIGIRAMIMARI-EMRAM — Sistem Audit Keman RMEional</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #F5F3EE;
+  --surface: #FDFCF9;
+  --surface2: #F0EDE6;
+  --border: #E2DDD4;
+  --border2: #CCC7BC;
+  --text: #1A1916;
+  --text2: #5C5850;
+  --text3: #9C978E;
+  --accent: #1A4F7A;
+  --accent-light: #E8F0F8;
+  --accent2: #2D7D5A;
+  --accent2-light: #E6F4EE;
+  --warn: #B85C00;
+  --warn-light: #FEF3E6;
+  --danger: #9B2B2B;
+  --danger-light: #FDEAEA;
+  --gold: #C4952A;
+  --gold-light: #FBF4E3;
+  --purple: #5B3F8C;
+  --purple-light: #F0EBF8;
+  --stage0: #9C978E;
+  --stage1: #3B82C4;
+  --stage2: #2563A8;
+  --stage3: #2D9065;
+  --stage4: #1E7A52;
+  --stage5: #D97706;
+  --stage6: #C05328;
+  --stage7: #5B3F8C;
+  --radius: 10px;
+  --radius-lg: 16px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-lg: 0 4px 16px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.6;
+  min-height: 100vh;
+  display: flex;
+}
+
+/* ─── SIDEBAR ─── */
+.sidebar {
+  width: 248px;
+  min-height: 100vh;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  z-index: 100;
+  overflow-y: auto;
+}
+
+.sidebar-logo {
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.logo-mark {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.logo-icon {
+  width: 32px; height: 32px;
+  background: var(--accent);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  color: white;
+  font-size: 16px;
+  font-family: 'DM Serif Display', serif;
+  flex-shrink: 0;
+}
+
+.logo-text {
+  font-family: 'DM Serif Display', serif;
+  font-size: 18px;
+  color: var(--text);
+  letter-spacing: -0.3px;
+}
+
+.logo-sub {
+  font-size: 10px;
+  color: var(--text3);
+  letter-spacing: 0.04em;
+  padding-left: 42px;
+}
+
+.sidebar-nav {
+  padding: 12px 10px;
+  flex: 1;
+}
+
+.nav-section {
+  margin-bottom: 20px;
+}
+
+.nav-section-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text3);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0 10px;
+  margin-bottom: 4px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--text2);
+  font-size: 13px;
+  transition: all 0.15s;
+  margin-bottom: 1px;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+}
+
+.nav-item:hover { background: var(--surface2); color: var(--text); }
+.nav-item.active { background: var(--accent-light); color: var(--accent); font-weight: 500; }
+.nav-item.active .nav-icon { color: var(--accent); }
+
+.nav-icon { font-size: 15px; width: 18px; text-align: center; flex-shrink: 0; }
+
+.nav-badge {
+  margin-left: auto;
+  background: var(--accent);
+  color: white;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 10px;
+}
+
+.sidebar-footer {
+  padding: 12px 10px;
+  border-top: 1px solid var(--border);
+}
+
+.user-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--surface2);
+}
+
+.user-avatar {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+.user-name { font-size: 12px; font-weight: 500; }
+.user-role { font-size: 10px; color: var(--text3); }
+
+/* ─── MAIN CONTENT ─── */
+.main {
+  margin-left: 248px;
+  flex: 1;
+  min-height: 100vh;
+}
+
+.topbar {
+  height: 56px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 28px;
+  gap: 16px;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.topbar-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: 18px;
+  color: var(--text);
+}
+
+.topbar-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer;
+  transition: all 0.15s;
+  border: none;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: white;
+}
+.btn-primary:hover { background: #153f62; }
+
+.btn-outline {
+  background: transparent;
+  color: var(--text2);
+  border: 1px solid var(--border2);
+}
+.btn-outline:hover { background: var(--surface2); }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text2);
+  padding: 7px 10px;
+}
+.btn-ghost:hover { background: var(--surface2); color: var(--text); }
+
+.notif-dot {
+  width: 8px; height: 8px;
+  background: #E24B4A;
+  border-radius: 50%;
+  position: absolute;
+  top: 4px; right: 4px;
+}
+
+.notif-btn { position: relative; }
+
+.page-content {
+  padding: 28px;
+  display: none;
+}
+
+.page-content.active { display: block; }
+
+/* ─── CARDS & GRIDS ─── */
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.grid-2-3 { display: grid; grid-template-columns: 2fr 1fr; gap: 14px; }
+.grid-3-2 { display: grid; grid-template-columns: 3fr 2fr; gap: 14px; }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--shadow);
+}
+
+.card-sm { padding: 16px; }
+
+.metric-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  box-shadow: var(--shadow);
+}
+
+.metric-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text3);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.metric-value {
+  font-size: 28px;
+  font-weight: 300;
+  font-family: 'DM Serif Display', serif;
+  color: var(--text);
+  line-height: 1;
+  margin-bottom: 6px;
+}
+
+.metric-change {
+  font-size: 11px;
+  color: var(--text3);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.change-up { color: var(--accent2); }
+.change-down { color: var(--danger); }
+
+.card-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: 16px;
+  color: var(--text);
+  margin-bottom: 14px;
+}
+
+.section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.section-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: 16px;
+}
+
+.section-link {
+  font-size: 12px;
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: none;
+  border: none;
+  background: none;
+  font-family: 'DM Sans', sans-serif;
+}
+
+/* ─── STAGE BADGE ─── */
+.stage-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.stage-s0 { background: #F1EFE8; color: var(--stage0); }
+.stage-s1 { background: #DDEAF6; color: var(--stage1); }
+.stage-s2 { background: #D5E3F4; color: var(--stage2); }
+.stage-s3 { background: #D6EEE3; color: var(--stage3); }
+.stage-s4 { background: #CCE8DC; color: var(--stage4); }
+.stage-s5 { background: #FDEFD6; color: var(--stage5); }
+.stage-s6 { background: #F8E2D8; color: var(--stage6); }
+.stage-s7 { background: #EBE3F5; color: var(--stage7); }
+
+/* ─── PROGRESS BAR ─── */
+.progress-wrap {
+  height: 6px;
+  background: var(--surface2);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.6s ease;
+}
+
+/* ─── TABLE ─── */
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+thead tr {
+  border-bottom: 1px solid var(--border);
+}
+
+th {
+  text-align: left;
+  padding: 10px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text3);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+td {
+  padding: 12px 12px;
+  font-size: 13px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: var(--surface2); }
+
+/* ─── STATUS BADGE ─── */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.status-done { background: var(--accent2-light); color: var(--accent2); }
+.status-review { background: var(--warn-light); color: var(--warn); }
+.status-draft { background: var(--surface2); color: var(--text3); }
+.status-fail { background: var(--danger-light); color: var(--danger); }
+
+/* ─── STAGE LADDER ─── */
+.stage-ladder {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stage-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.stage-row:hover { background: var(--surface2); }
+.stage-row.current { background: var(--accent-light); }
+
+.stage-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.stage-name { font-size: 12px; font-weight: 500; flex: 1; }
+.stage-pct { font-size: 12px; color: var(--text3); }
+
+.stage-bar-wrap {
+  width: 80px;
+  height: 4px;
+  background: var(--surface2);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.stage-bar-fill { height: 100%; border-radius: 2px; }
+
+/* ─── PIE / DONUT ─── */
+.donut-wrap {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+/* ─── FORM STYLES ─── */
+.form-group { margin-bottom: 18px; }
+
+.form-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text2);
+  margin-bottom: 6px;
+}
+
+.form-label .required { color: var(--danger); margin-left: 2px; }
+
+.form-control {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--surface);
+  transition: border-color 0.15s, box-shadow 0.15s;
+  outline: none;
+}
+
+.form-control:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(26, 79, 122, 0.1);
+}
+
+select.form-control { cursor: pointer; }
+
+.form-hint { font-size: 11px; color: var(--text3); margin-top: 4px; }
+
+/* ─── AUDIT ITEM ─── */
+.audit-item {
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 8px;
+  background: var(--surface);
+  transition: all 0.15s;
+}
+
+.audit-item:hover { border-color: var(--border2); box-shadow: var(--shadow); }
+
+.audit-item-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.audit-check {
+  width: 18px; height: 18px;
+  border: 1.5px solid var(--border2);
+  border-radius: 4px;
+  flex-shrink: 0;
+  margin-top: 1px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px;
+  transition: all 0.15s;
+}
+
+.audit-check.checked {
+  background: var(--accent2);
+  border-color: var(--accent2);
+  color: white;
+}
+
+.audit-check.partial {
+  background: var(--warn-light);
+  border-color: var(--warn);
+  color: var(--warn);
+}
+
+.audit-q { font-size: 13px; line-height: 1.5; flex: 1; }
+.audit-weight { font-size: 11px; color: var(--text3); flex-shrink: 0; }
+
+.audit-sub { font-size: 11px; color: var(--text3); padding-left: 30px; }
+
+.radio-group {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+  padding-left: 30px;
+}
+
+.radio-opt {
+  padding: 5px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--border2);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.12s;
+  background: var(--surface);
+}
+
+.radio-opt:hover { border-color: var(--accent); color: var(--accent); }
+.radio-opt.sel-yes { background: var(--accent2-light); border-color: var(--accent2); color: var(--accent2); }
+.radio-opt.sel-partial { background: var(--warn-light); border-color: var(--warn); color: var(--warn); }
+.radio-opt.sel-no { background: var(--danger-light); border-color: var(--danger); color: var(--danger); }
+
+/* ─── MAP PLACEHOLDER ─── */
+.map-container {
+  background: linear-gradient(135deg, #E8EFF8 0%, #DDE8F2 50%, #E8F0E8 100%);
+  border-radius: var(--radius);
+  height: 280px;
+  position: relative;
+  overflow: hidden;
+}
+
+.map-dots {
+  position: absolute;
+  inset: 0;
+}
+
+.map-dot {
+  position: absolute;
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  border: 2px solid white;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+
+.map-dot:hover { transform: scale(1.4); }
+
+.map-legend {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  background: rgba(255,255,255,0.9);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+}
+
+/* ─── DOMAIN SCORE CARD ─── */
+.domain-card {
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  margin-bottom: 8px;
+}
+
+.domain-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.domain-name { font-size: 13px; font-weight: 500; }
+.domain-score { font-size: 18px; font-family: 'DM Serif Display', serif; }
+
+/* ─── TAB COMPONENT ─── */
+.tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 20px;
+  gap: 0;
+}
+
+.tab-btn {
+  padding: 10px 18px;
+  border: none;
+  background: none;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  color: var(--text3);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+  margin-bottom: -1px;
+}
+
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 500; }
+
+/* ─── STEP INDICATOR ─── */
+.steps {
+  display: flex;
+  align-items: center;
+  margin-bottom: 28px;
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  flex: 1;
+}
+
+.step-dot {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  border: 2px solid var(--border2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text3);
+  background: var(--surface);
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.step.done .step-dot { background: var(--accent2); border-color: var(--accent2); color: white; }
+.step.current .step-dot { background: var(--accent); border-color: var(--accent); color: white; box-shadow: 0 0 0 4px var(--accent-light); }
+
+.step-label { font-size: 11px; color: var(--text3); margin-top: 4px; }
+.step.done .step-label, .step.current .step-label { color: var(--text2); }
+
+.step-line { flex: 1; height: 1px; background: var(--border); margin: 0 8px; }
+.step.done .step-line { background: var(--accent2); }
+
+.step-inner { display: flex; flex-direction: column; align-items: center; }
+
+/* ─── CHIP ─── */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 9px;
+  border-radius: 20px;
+  font-size: 11px;
+  border: 1px solid var(--border);
+  color: var(--text2);
+  background: var(--surface);
+}
+
+/* ─── NOTIFICATION ─── */
+.notif-item {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  margin-bottom: 6px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  background: var(--surface);
+}
+
+.notif-icon-wrap {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.notif-time { font-size: 10px; color: var(--text3); margin-top: 2px; }
+.notif-msg { font-size: 12px; line-height: 1.4; }
+
+/* ─── RADAR / SPIDER ─── */
+.spider-wrap { display: flex; justify-content: center; }
+
+/* ─── ANIMATIONS ─── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.page-content.active > * {
+  animation: fadeUp 0.3s ease forwards;
+}
+
+.page-content.active > *:nth-child(2) { animation-delay: 0.04s; }
+.page-content.active > *:nth-child(3) { animation-delay: 0.08s; }
+.page-content.active > *:nth-child(4) { animation-delay: 0.12s; }
+
+/* ─── SCORE RING ─── */
+.score-ring-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.score-ring-label {
+  position: absolute;
+  text-align: center;
+}
+
+.score-ring-num {
+  font-family: 'DM Serif Display', serif;
+  font-size: 28px;
+  line-height: 1;
+  color: var(--text);
+}
+
+.score-ring-sub {
+  font-size: 10px;
+  color: var(--text3);
+}
+
+/* ─── MISC ─── */
+.divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+.text-sm { font-size: 12px; }
+.text-xs { font-size: 11px; }
+.text-muted { color: var(--text3); }
+.text-accent { color: var(--accent); }
+.text-success { color: var(--accent2); }
+.text-warn { color: var(--warn); }
+.text-danger { color: var(--danger); }
+.fw-500 { font-weight: 500; }
+.serif { font-family: 'DM Serif Display', serif; }
+.flex { display: flex; }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+.gap-8 { gap: 8px; }
+.gap-12 { gap: 12px; }
+.mb-4 { margin-bottom: 4px; }
+.mb-8 { margin-bottom: 8px; }
+.mb-14 { margin-bottom: 14px; }
+.mb-20 { margin-bottom: 20px; }
+.mt-auto { margin-top: auto; }
+.pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 600;
+}
+.pill-accent { background: var(--accent-light); color: var(--accent); }
+.pill-green { background: var(--accent2-light); color: var(--accent2); }
+.pill-warn { background: var(--warn-light); color: var(--warn); }
+.pill-purple { background: var(--purple-light); color: var(--purple); }
+.pill-gold { background: var(--gold-light); color: var(--gold); }
+
+.scrollbar-thin::-webkit-scrollbar { width: 4px; }
+.scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+.scrollbar-thin::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+/* ─── PAGE HEADER ─── */
+.page-header {
+  margin-bottom: 24px;
+}
+
+.page-header h1 {
+  font-family: 'DM Serif Display', serif;
+  font-size: 26px;
+  font-weight: 400;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.page-header p {
+  font-size: 13px;
+  color: var(--text3);
+}
+
+/* ─── DOMAIN COLORS ─── */
+.domain-bar { height: 100%; border-radius: 3px; }
+
+/* ─── FASKES DETAIL HEADER ─── */
+.faskes-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  margin-bottom: 16px;
+}
+
+.faskes-avatar {
+  width: 48px; height: 48px;
+  border-radius: 12px;
+  background: var(--accent);
+  color: white;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.faskes-info h2 {
+  font-family: 'DM Serif Display', serif;
+  font-size: 20px;
+  margin-bottom: 4px;
+}
+
+.faskes-meta { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+.domain-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  border: 1px solid transparent;
+}
+
+/* ─── SCROLLABLE TABLE CONTAINER ─── */
+.table-container {
+  overflow-x: auto;
+  margin: 0 -4px;
+  padding: 0 4px;
+}
+</style>
+</head>
+<body>
+
+<!-- ═══ SIDEBAR ═══ -->
+<aside class="sidebar scrollbar-thin">
+  <div class="sidebar-logo">
+    <div class="logo-mark">
+      <div class="logo-icon">S</div>
+      <div class="logo-text">SIMARI</div>
+    </div>
+    <div class="logo-sub">EMRAM · AUDIT RME NASIONAL</div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="nav-section">
+      <div class="nav-section-label">Utama</div>
+      <button class="nav-item active" onclick="showPage('dashboard')">
+        <span class="nav-icon">◈</span> Dashboard Nasional
+      </button>
+      <button class="nav-item" onclick="showPage('faskes')">
+        <span class="nav-icon">⊞</span> Direktori Faskes
+      </button>
+      <button class="nav-item" onclick="showPage('peta')">
+        <span class="nav-icon">◉</span> Peta Kesiapan
+      </button>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-section-label">Proses Audit</div>
+      <button class="nav-item" onclick="showPage('audit')">
+        <span class="nav-icon">✦</span> Mulai Audit Baru
+      </button>
+      <button class="nav-item" onclick="showPage('instrument')">
+        <span class="nav-icon">◎</span> Instrumen EMRAM
+      </button>
+      <button class="nav-item" onclick="showPage('verifikasi')">
+        <span class="nav-icon">◐</span> Antrian Verifikasi
+        <span class="nav-badge">7</span>
+      </button>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-section-label">Laporan</div>
+      <button class="nav-item" onclick="showPage('laporan')">
+        <span class="nav-icon">▣</span> Laporan &amp; Analitik
+      </button>
+      <button class="nav-item" onclick="showPage('benchmark')">
+        <span class="nav-icon">◆</span> Benchmark Regional
+      </button>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-section-label">Admin</div>
+      <button class="nav-item" onclick="showPage('profil')">
+        <span class="nav-icon">◷</span> Profil Faskes Saya
+      </button>
+      <button class="nav-item">
+        <span class="nav-icon">⊗</span> Pengaturan
+      </button>
+    </div>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="user-card">
+      <div class="user-avatar">DK</div>
+      <div>
+        <div class="user-name">dr. Dewi Kusuma</div>
+        <div class="user-role">Admin Pusat · Kemenkes</div>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- ═══ MAIN ═══ -->
+<main class="main">
+
+  <!-- TOPBAR -->
+  <div class="topbar" id="topbar">
+    <div class="topbar-title" id="topbar-title">Dashboard Nasional</div>
+    <div class="topbar-actions">
+      <button class="btn btn-ghost notif-btn">
+        🔔
+        <div class="notif-dot"></div>
+      </button>
+      <button class="btn btn-ghost">⚙</button>
+      <button class="btn btn-primary" onclick="showPage('audit')">+ Audit Baru</button>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════
+       PAGE: DASHBOARD
+  ════════════════════════════ -->
+  <div class="page-content active" id="page-dashboard">
+    <div class="page-header">
+      <h1>Selamat pagi, dr. Dewi 👋</h1>
+      <p>Monitoring kematangan RME seluruh faskes Indonesia — periode audit Q2 2025</p>
+    </div>
+
+    <!-- KPI Row -->
+    <div class="grid-4 mb-20">
+      <div class="metric-card">
+        <div class="metric-label">Total Faskes Terdaftar</div>
+        <div class="metric-value">3.847</div>
+        <div class="metric-change"><span class="change-up">↑ 142</span>&nbsp;dari bulan lalu</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Sudah Diaudit</div>
+        <div class="metric-value">2.291</div>
+        <div class="metric-change">
+          <div class="progress-wrap" style="width:80px; height:4px; display:inline-block; vertical-align:middle; margin-right:6px;">
+            <div class="progress-fill" style="width:60%; background:var(--accent);"></div>
+          </div>
+          59.5% dari total
+        </div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Rata-rata Stage EMRAM</div>
+        <div class="metric-value">2.7</div>
+        <div class="metric-change"><span class="change-up">↑ 0.3</span>&nbsp;dibanding tahun lalu</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Terintegrasi Satu Sehat</div>
+        <div class="metric-value">34%</div>
+        <div class="metric-change"><span class="change-up">↑ 8%</span>&nbsp;kuartal ini</div>
+      </div>
+    </div>
+
+    <div class="grid-2-3 mb-20">
+      <!-- Distribusi Stage -->
+      <div class="card">
+        <div class="section-header">
+          <div class="card-title">Distribusi Stage EMRAM</div>
+          <button class="section-link">Detail →</button>
+        </div>
+
+        <div style="margin-bottom:16px;">
+          <div style="display:flex; align-items:center; height:10px; border-radius:5px; overflow:hidden; gap:1px;">
+            <div style="width:9%; background:var(--stage0); height:100%;"></div>
+            <div style="width:14%; background:var(--stage1); height:100%;"></div>
+            <div style="width:22%; background:var(--stage2); height:100%;"></div>
+            <div style="width:28%; background:var(--stage3); height:100%;"></div>
+            <div style="width:16%; background:var(--stage4); height:100%;"></div>
+            <div style="width:7%; background:var(--stage5); height:100%;"></div>
+            <div style="width:3%; background:var(--stage6); height:100%;"></div>
+            <div style="width:1%; background:var(--stage7); height:100%;"></div>
+          </div>
+        </div>
+
+        <div class="stage-ladder">
+          <div class="stage-row" onclick="">
+            <div class="stage-dot" style="background:var(--stage7);"></div>
+            <div class="stage-name">Stage 7 — Paperless penuh</div>
+            <div class="stage-bar-wrap"><div class="stage-bar-fill" style="width:5%; background:var(--stage7);"></div></div>
+            <div class="stage-pct">23 RS</div>
+          </div>
+          <div class="stage-row">
+            <div class="stage-dot" style="background:var(--stage6);"></div>
+            <div class="stage-name">Stage 6 — Physician doc + HIE</div>
+            <div class="stage-bar-wrap"><div class="stage-bar-fill" style="width:15%; background:var(--stage6);"></div></div>
+            <div class="stage-pct">67 RS</div>
+          </div>
+          <div class="stage-row">
+            <div class="stage-dot" style="background:var(--stage5);"></div>
+            <div class="stage-name">Stage 5 — Closed-loop + PACS</div>
+            <div class="stage-bar-wrap"><div class="stage-bar-fill" style="width:25%; background:var(--stage5);"></div></div>
+            <div class="stage-pct">157 RS</div>
+          </div>
+          <div class="stage-row current">
+            <div class="stage-dot" style="background:var(--stage4);"></div>
+            <div class="stage-name">Stage 4 — CPOE &gt;50%</div>
+            <div class="stage-bar-wrap"><div class="stage-bar-fill" style="width:55%; background:var(--stage4);"></div></div>
+            <div class="stage-pct">368 RS</div>
+          </div>
+          <div class="stage-row">
+            <div class="stage-dot" style="background:var(--stage3);"></div>
+            <div class="stage-name">Stage 3 — Dokumentasi + CPOE dasar</div>
+            <div class="stage-bar-wrap"><div class="stage-bar-fill" style="width:90%; background:var(--stage3);"></div></div>
+            <div class="stage-pct">642 RS</div>
+          </div>
+          <div class="stage-row">
+            <div class="stage-dot" style="background:var(--stage2);"></div>
+            <div class="stage-name">Stage 2 — CDR terintegrasi</div>
+            <div class="stage-bar-wrap"><div class="stage-bar-fill" style="width:70%; background:var(--stage2);"></div></div>
+            <div class="stage-pct">507 RS</div>
+          </div>
+          <div class="stage-row">
+            <div class="stage-dot" style="background:var(--stage1);"></div>
+            <div class="stage-name">Stage 1 — Sistem ancillary</div>
+            <div class="stage-bar-wrap"><div class="stage-bar-fill" style="width:40%; background:var(--stage1);"></div></div>
+            <div class="stage-pct">319 RS</div>
+          </div>
+          <div class="stage-row">
+            <div class="stage-dot" style="background:var(--stage0);"></div>
+            <div class="stage-name">Stage 0 — Pra-digital</div>
+            <div class="stage-bar-wrap"><div class="stage-bar-fill" style="width:20%; background:var(--stage0);"></div></div>
+            <div class="stage-pct">208 RS</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Aktivitas Terbaru + Notifikasi -->
+      <div style="display:flex; flex-direction:column; gap:14px;">
+        <div class="card">
+          <div class="section-header">
+            <div class="card-title">Perlu Tindakan</div>
+            <button class="section-link">Lihat semua →</button>
+          </div>
+          <div class="notif-item">
+            <div class="notif-icon-wrap" style="background:var(--warn-light);">⏳</div>
+            <div>
+              <div class="notif-msg fw-500">RS Umum Daerah Wates</div>
+              <div class="notif-msg text-muted">Menunggu verifikasi Dinkes DIY · Stage 3 → 4</div>
+              <div class="notif-time">2 hari yang lalu</div>
+            </div>
+          </div>
+          <div class="notif-item">
+            <div class="notif-icon-wrap" style="background:var(--danger-light);">⚠</div>
+            <div>
+              <div class="notif-msg fw-500">Puskesmas Mlati II</div>
+              <div class="notif-msg text-muted">Dokumen pendukung tidak lengkap</div>
+              <div class="notif-time">Kemarin</div>
+            </div>
+          </div>
+          <div class="notif-item">
+            <div class="notif-icon-wrap" style="background:var(--accent2-light);">✓</div>
+            <div>
+              <div class="notif-msg fw-500">RSUP Dr. Sardjito</div>
+              <div class="notif-msg text-muted">Lulus validasi Stage 5 — Sertifikat diterbitkan</div>
+              <div class="notif-time">3 hari yang lalu</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Integrasi Satu Sehat</div>
+          <div style="display:flex; flex-direction:column; gap:10px;">
+            <div>
+              <div class="flex justify-between mb-4">
+                <div class="text-sm">Terhubung API</div>
+                <div class="text-sm fw-500">34%</div>
+              </div>
+              <div class="progress-wrap"><div class="progress-fill" style="width:34%; background:var(--accent);"></div></div>
+            </div>
+            <div>
+              <div class="flex justify-between mb-4">
+                <div class="text-sm">FHIR R4 aktif</div>
+                <div class="text-sm fw-500">21%</div>
+              </div>
+              <div class="progress-wrap"><div class="progress-fill" style="width:21%; background:var(--accent2);"></div></div>
+            </div>
+            <div>
+              <div class="flex justify-between mb-4">
+                <div class="text-sm">NIK sebagai master ID</div>
+                <div class="text-sm fw-500">58%</div>
+              </div>
+              <div class="progress-wrap"><div class="progress-fill" style="width:58%; background:var(--gold);"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabel Faskes Terbaru -->
+    <div class="card">
+      <div class="section-header">
+        <div class="card-title">Audit Terbaru</div>
+        <div class="flex gap-8">
+          <select class="form-control" style="width:auto; padding:5px 10px; font-size:12px;">
+            <option>Semua Provinsi</option>
+            <option>DI Yogyakarta</option>
+            <option>DKI Jakarta</option>
+          </select>
+          <button class="btn btn-outline" style="font-size:12px; padding:5px 12px;">⬇ Ekspor</button>
+        </div>
+      </div>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Nama Faskes</th>
+              <th>Jenis</th>
+              <th>Wilayah</th>
+              <th>Stage EMRAM</th>
+              <th>Satu Sehat</th>
+              <th>Status Audit</th>
+              <th>Terakhir Diperbarui</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><div class="fw-500">RSUP Dr. Sardjito</div><div class="text-xs text-muted">RS00341 · Tipe A</div></td>
+              <td><span class="chip">RS Umum</span></td>
+              <td>DIY · Sleman</td>
+              <td><span class="stage-badge stage-s5">Stage 5</span></td>
+              <td><span class="pill pill-green">Terhubung</span></td>
+              <td><span class="status-badge status-done">✓ Tervalidasi</span></td>
+              <td class="text-muted text-xs">3 hari lalu</td>
+              <td><button class="btn btn-ghost" style="font-size:11px; padding:4px 8px;" onclick="showPage('profil')">Detail →</button></td>
+            </tr>
+            <tr>
+              <td><div class="fw-500">RSUD Wates Kulon Progo</div><div class="text-xs text-muted">RS01827 · Tipe B</div></td>
+              <td><span class="chip">RS Daerah</span></td>
+              <td>DIY · Kulon Progo</td>
+              <td><span class="stage-badge stage-s3">Stage 3</span></td>
+              <td><span class="pill pill-warn">Parsial</span></td>
+              <td><span class="status-badge status-review">⏳ Review Dinkes</span></td>
+              <td class="text-muted text-xs">2 hari lalu</td>
+              <td><button class="btn btn-ghost" style="font-size:11px; padding:4px 8px;">Detail →</button></td>
+            </tr>
+            <tr>
+              <td><div class="fw-500">Puskesmas Mlati II</div><div class="text-xs text-muted">PKM04521</div></td>
+              <td><span class="chip">Puskesmas</span></td>
+              <td>DIY · Sleman</td>
+              <td><span class="stage-badge stage-s2">Stage 2</span></td>
+              <td><span class="pill" style="background:var(--danger-light);color:var(--danger);">Belum</span></td>
+              <td><span class="status-badge status-fail">✗ Dokumen kurang</span></td>
+              <td class="text-muted text-xs">Kemarin</td>
+              <td><button class="btn btn-ghost" style="font-size:11px; padding:4px 8px;">Detail →</button></td>
+            </tr>
+            <tr>
+              <td><div class="fw-500">RS Bethesda Yogyakarta</div><div class="text-xs text-muted">RS00892 · Tipe B</div></td>
+              <td><span class="chip">RS Swasta</span></td>
+              <td>DIY · Kota YK</td>
+              <td><span class="stage-badge stage-s4">Stage 4</span></td>
+              <td><span class="pill pill-green">Terhubung</span></td>
+              <td><span class="status-badge status-done">✓ Tervalidasi</span></td>
+              <td class="text-muted text-xs">1 minggu lalu</td>
+              <td><button class="btn btn-ghost" style="font-size:11px; padding:4px 8px;">Detail →</button></td>
+            </tr>
+            <tr>
+              <td><div class="fw-500">Klinik Pratama Depok Sehat</div><div class="text-xs text-muted">KLN08341</div></td>
+              <td><span class="chip">Klinik</span></td>
+              <td>DIY · Sleman</td>
+              <td><span class="stage-badge stage-s1">Stage 1</span></td>
+              <td><span class="pill" style="background:var(--danger-light);color:var(--danger);">Belum</span></td>
+              <td><span class="status-badge status-draft">◌ Draft</span></td>
+              <td class="text-muted text-xs">5 hari lalu</td>
+              <td><button class="btn btn-ghost" style="font-size:11px; padding:4px 8px;">Detail →</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ════════════════════════════
+       PAGE: INSTRUMEN AUDIT
+  ════════════════════════════ -->
+  <div class="page-content" id="page-instrument">
+    <div class="page-header">
+      <h1>Instrumen Audit EMRAM</h1>
+      <p>Penilaian kematangan RME berbasis HIMSS EMRAM yang dilokalisasi — RS Umum Daerah Wates, Stage 3 → 4</p>
+    </div>
+
+    <!-- Step Indicator -->
+    <div class="steps mb-20">
+      <div class="step done">
+        <div class="step-inner">
+          <div class="step-dot">✓</div>
+          <div class="step-label">Identitas Faskes</div>
+        </div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step done">
+        <div class="step-inner">
+          <div class="step-dot">✓</div>
+          <div class="step-label">Domain 1–3</div>
+        </div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step current">
+        <div class="step-inner">
+          <div class="step-dot">3</div>
+          <div class="step-label">Domain 4 — CPOE</div>
+        </div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step">
+        <div class="step-inner">
+          <div class="step-dot">4</div>
+          <div class="step-label">Domain 5–7</div>
+        </div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step">
+        <div class="step-inner">
+          <div class="step-dot">5</div>
+          <div class="step-label">Satu Sehat</div>
+        </div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step">
+        <div class="step-inner">
+          <div class="step-dot">6</div>
+          <div class="step-label">Review &amp; Kirim</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-3-2">
+      <!-- AUDIT FORM -->
+      <div>
+        <!-- Stage Context -->
+        <div class="card card-sm mb-14" style="border-left:3px solid var(--stage4); background: var(--surface);">
+          <div class="flex items-center gap-12 mb-8">
+            <span class="stage-badge stage-s4" style="font-size:13px; padding:5px 14px;">Stage 4</span>
+            <div>
+              <div class="fw-500" style="font-size:13px;">CPOE &amp; Clinical Decision Support Komprehensif</div>
+              <div class="text-xs text-muted">Kriteria HIMSS EMRAM 2022 — dilokalkan untuk konteks Indonesia</div>
+            </div>
+          </div>
+          <div class="text-xs text-muted" style="line-height:1.6;">
+            Stage ini mensyaratkan &gt;50% order medis dimasukkan via CPOE oleh klinisi berlisensi, didukung CDS engine, dan dokumentasi perawat mencapai ≥90%. Terdapat 12 item penilaian pada stage ini.
+          </div>
+        </div>
+
+        <!-- Domain Header -->
+        <div class="flex items-center gap-8 mb-14">
+          <div class="fw-500" style="font-size:15px;">Domain 4 — CPOE &amp; CDS</div>
+          <span class="pill pill-accent">8 / 12 item dinilai</span>
+          <span class="text-xs text-muted" style="margin-left:auto;">Bobot: 20%</span>
+        </div>
+
+        <!-- Audit Items -->
+        <div class="audit-item">
+          <div class="audit-item-header">
+            <div class="audit-check checked">✓</div>
+            <div class="audit-q">Lebih dari 50% order medis dimasukkan melalui Computerized Practitioner Order Entry (CPOE) oleh klinisi berlisensi (dokter, perawat, apoteker)</div>
+            <div class="audit-weight">10 poin</div>
+          </div>
+          <div class="radio-group">
+            <div class="radio-opt sel-yes">✓ Ya, &gt;50%</div>
+            <div class="radio-opt">Parsial (30–50%)</div>
+            <div class="radio-opt">Tidak (&lt;30%)</div>
+          </div>
+          <div class="audit-sub" style="margin-top:6px;">Bukti: Screenshot laporan CPOE utilization rate bulan terakhir</div>
+        </div>
+
+        <div class="audit-item">
+          <div class="audit-item-header">
+            <div class="audit-check checked">✓</div>
+            <div class="audit-q">CPOE didukung Clinical Decision Support (CDS) engine untuk conflict checking — minimal drug-allergy, drug-drug, dan drug-lab</div>
+            <div class="audit-weight">10 poin</div>
+          </div>
+          <div class="radio-group">
+            <div class="radio-opt sel-yes">✓ Ya, ketiganya</div>
+            <div class="radio-opt">Hanya 1–2 tipe</div>
+            <div class="radio-opt">Belum ada</div>
+          </div>
+        </div>
+
+        <div class="audit-item">
+          <div class="audit-item-header">
+            <div class="audit-check partial">~</div>
+            <div class="audit-q">Dokumentasi perawat dan tenaga kesehatan lain (selain IGD) telah mencapai ≥90% secara elektronik dan tersedia di Clinical Data Repository</div>
+            <div class="audit-weight">8 poin</div>
+          </div>
+          <div class="radio-group">
+            <div class="radio-opt">Ya, ≥90%</div>
+            <div class="radio-opt sel-partial">~ Parsial (70–89%)</div>
+            <div class="radio-opt">Belum (&lt;70%)</div>
+          </div>
+          <div class="audit-sub" style="margin-top:6px; color: var(--warn);">⚠ Poin perhatian: Laporan menunjukkan 78% — perlu peningkatan untuk memenuhi threshold</div>
+        </div>
+
+        <div class="audit-item">
+          <div class="audit-item-header">
+            <div class="audit-check checked">✓</div>
+            <div class="audit-q">Order CPOE masuk ke lingkungan keperawatan dan Clinical Data Repository secara real-time tanpa jeda signifikan</div>
+            <div class="audit-weight">6 poin</div>
+          </div>
+          <div class="radio-group">
+            <div class="radio-opt sel-yes">✓ Ya, real-time</div>
+            <div class="radio-opt">Dengan jeda &lt;1 jam</div>
+            <div class="radio-opt">Manual / tidak otomatis</div>
+          </div>
+        </div>
+
+        <div class="audit-item">
+          <div class="audit-item-header">
+            <div class="audit-check" style="border-color:var(--border2);">○</div>
+            <div class="audit-q">Saat downtime EMR, klinisi tetap dapat mengakses alergi pasien, daftar masalah/diagnosis, obat aktif, dan hasil lab terakhir melalui mekanisme backup</div>
+            <div class="audit-weight">8 poin</div>
+          </div>
+          <div class="radio-group">
+            <div class="radio-opt">Ya, tersedia</div>
+            <div class="radio-opt">Tersedia sebagian</div>
+            <div class="radio-opt">Tidak tersedia</div>
+          </div>
+        </div>
+
+        <div class="audit-item" style="border-left: 3px solid #185FA5;">
+          <div class="audit-item-header">
+            <div class="audit-check" style="border-color:var(--accent); background:var(--accent-light);">⊕</div>
+            <div class="audit-q" style="color:var(--accent); font-weight:500;">🇮🇩 Domain Satu Sehat: CPOE terhubung ke API Satu Sehat untuk pelaporan farmasi dan order lab secara otomatis</div>
+            <div class="audit-weight" style="color:var(--accent);">+5 poin</div>
+          </div>
+          <div class="radio-group">
+            <div class="radio-opt">Ya, aktif</div>
+            <div class="radio-opt">Dalam pengembangan</div>
+            <div class="radio-opt">Belum</div>
+          </div>
+          <div class="audit-sub" style="margin-top:6px;">Item tambahan nasional — tidak ada di EMRAM standar HIMSS</div>
+        </div>
+
+        <div class="flex gap-8" style="margin-top:20px;">
+          <button class="btn btn-outline" style="flex:1;">← Domain Sebelumnya</button>
+          <button class="btn btn-primary" style="flex:2;">Simpan &amp; Lanjut ke Domain 5 →</button>
+        </div>
+      </div>
+
+      <!-- SIDEBAR SCORE -->
+      <div style="display:flex; flex-direction:column; gap:14px;">
+        <!-- Score Ring -->
+        <div class="card" style="text-align:center;">
+          <div class="card-title" style="text-align:left;">Skor Sementara</div>
+          <div class="score-ring-wrap" style="margin:8px auto;">
+            <svg width="120" height="120" viewBox="0 0 120 120">
+              <circle cx="60" cy="60" r="52" fill="none" stroke="#E2DDD4" stroke-width="10"/>
+              <circle cx="60" cy="60" r="52" fill="none" stroke="#1A4F7A" stroke-width="10"
+                stroke-dasharray="326.7" stroke-dashoffset="100" stroke-linecap="round"
+                transform="rotate(-90 60 60)"/>
+            </svg>
+            <div class="score-ring-label">
+              <div class="score-ring-num">69</div>
+              <div class="score-ring-sub">/ 100</div>
+            </div>
+          </div>
+          <div class="stage-badge stage-s3" style="font-size:12px; padding:5px 16px;">Estimasi: Stage 3</div>
+          <div class="text-xs text-muted" style="margin-top:8px;">Butuh +16 poin untuk capai Stage 4</div>
+        </div>
+
+        <!-- Domain Progress -->
+        <div class="card card-sm">
+          <div class="card-title" style="font-size:14px; margin-bottom:12px;">Progress per Domain</div>
+          <div style="display:flex; flex-direction:column; gap:10px;">
+            <div>
+              <div class="flex justify-between mb-4">
+                <div class="text-xs">D1 · Infrastruktur &amp; Ancillary</div>
+                <div class="text-xs fw-500 text-success">92%</div>
+              </div>
+              <div class="progress-wrap"><div class="progress-fill" style="width:92%; background:var(--accent2);"></div></div>
+            </div>
+            <div>
+              <div class="flex justify-between mb-4">
+                <div class="text-xs">D2 · CDR &amp; Terminologi</div>
+                <div class="text-xs fw-500 text-success">85%</div>
+              </div>
+              <div class="progress-wrap"><div class="progress-fill" style="width:85%; background:var(--accent2);"></div></div>
+            </div>
+            <div>
+              <div class="flex justify-between mb-4">
+                <div class="text-xs">D3 · Dokumentasi Klinis</div>
+                <div class="text-xs fw-500" style="color:var(--warn);">71%</div>
+              </div>
+              <div class="progress-wrap"><div class="progress-fill" style="width:71%; background:var(--warn);"></div></div>
+            </div>
+            <div>
+              <div class="flex justify-between mb-4">
+                <div class="text-xs">D4 · CPOE &amp; CDS ← Sedang</div>
+                <div class="text-xs fw-500" style="color:var(--accent);">58%</div>
+              </div>
+              <div class="progress-wrap"><div class="progress-fill" style="width:58%; background:var(--accent);"></div></div>
+            </div>
+            <div>
+              <div class="flex justify-between mb-4">
+                <div class="text-xs">D5 · Keamanan &amp; Privasi</div>
+                <div class="text-xs text-muted">Belum dinilai</div>
+              </div>
+              <div class="progress-wrap"><div class="progress-fill" style="width:0%; background:var(--border2);"></div></div>
+            </div>
+            <div>
+              <div class="flex justify-between mb-4">
+                <div class="text-xs">D6 · Tata Kelola</div>
+                <div class="text-xs text-muted">Belum dinilai</div>
+              </div>
+              <div class="progress-wrap"><div class="progress-fill" style="width:0%; background:var(--border2);"></div></div>
+            </div>
+            <div style="border-top:1px solid var(--border); padding-top:10px; margin-top:2px;">
+              <div class="flex justify-between mb-4">
+                <div class="text-xs" style="color:var(--accent); font-weight:500;">🇮🇩 Satu Sehat Integration</div>
+                <div class="text-xs fw-500" style="color:var(--accent);">30%</div>
+              </div>
+              <div class="progress-wrap"><div class="progress-fill" style="width:30%; background:var(--accent);"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Gap Alert -->
+        <div class="card card-sm" style="border: 1px solid var(--warn); background: var(--warn-light);">
+          <div class="fw-500 text-warn mb-8" style="font-size:13px;">⚠ Gap Utama Terdeteksi</div>
+          <div class="text-xs" style="color: var(--warn); line-height:1.6;">
+            Dokumentasi perawat baru 78% (target ≥90%). Perlu peningkatan sebelum dapat melanjutkan ke Stage 4.
+          </div>
+          <div class="text-xs text-muted" style="margin-top:8px;">Rekomendasi: Pelatihan sistem dokumentasi + monitoring kepatuhan selama 30 hari</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ════════════════════════════
+       PAGE: PROFIL FASKES
+  ════════════════════════════ -->
+  <div class="page-content" id="page-profil">
+    <div class="page-header">
+      <h1>Profil Fasilitas Kesehatan</h1>
+      <p>Detail identifikasi, riwayat audit, dan peta jalan kematangan RME</p>
+    </div>
+
+    <!-- Faskes Header Card -->
+    <div class="faskes-header mb-14">
+      <div class="faskes-avatar">🏥</div>
+      <div class="faskes-info" style="flex:1;">
+        <h2>RSUP Dr. Sardjito</h2>
+        <div class="faskes-meta mb-8">
+          <span class="chip">RS Pemerintah · Tipe A</span>
+          <span class="chip">Akreditasi SNARS Paripurna</span>
+          <span class="chip">Kode: RS00341</span>
+          <span class="stage-badge stage-s5">Stage 5</span>
+          <span class="pill pill-green">Satu Sehat ✓</span>
+        </div>
+        <div class="faskes-meta">
+          <span class="text-xs text-muted">📍 Jl. Kesehatan No.1, Sendowo, Sleman, DIY</span>
+          <span class="text-xs text-muted">·</span>
+          <span class="text-xs text-muted">📞 (0274) 587333</span>
+          <span class="text-xs text-muted">·</span>
+          <span class="text-xs text-muted">🛏 916 TT</span>
+          <span class="text-xs text-muted">·</span>
+          <span class="text-xs text-muted">👥 ~2.800 kunjungan/hari</span>
+        </div>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:8px; align-items:flex-end;">
+        <button class="btn btn-primary">+ Mulai Audit Baru</button>
+        <button class="btn btn-outline">⬇ Unduh Laporan</button>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab(this, 'tab-identitas')">Identitas</button>
+      <button class="tab-btn" onclick="switchTab(this, 'tab-riwayat')">Riwayat Audit</button>
+      <button class="tab-btn" onclick="switchTab(this, 'tab-skor')">Skor &amp; Gap</button>
+      <button class="tab-btn" onclick="switchTab(this, 'tab-roadmap')">Peta Jalan</button>
+      <button class="tab-btn" onclick="switchTab(this, 'tab-satusehat')">Satu Sehat</button>
+    </div>
+
+    <div id="tab-identitas">
+      <div class="grid-3">
+        <div class="card card-sm">
+          <div class="card-title" style="font-size:14px;">Identifikasi Resmi</div>
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <div><div class="text-xs text-muted">Kode RS (SRS Online)</div><div class="fw-500">RS00341</div></div>
+            <div><div class="text-xs text-muted">Kode ASPAK</div><div class="fw-500">3404001</div></div>
+            <div><div class="text-xs text-muted">No. Izin Operasional</div><div class="fw-500">HK.07.06/YANKES/2451/2023</div></div>
+            <div><div class="text-xs text-muted">NIP Faskes BPJS</div><div class="fw-500">0700R001</div></div>
+          </div>
+        </div>
+        <div class="card card-sm">
+          <div class="card-title" style="font-size:14px;">Klasifikasi</div>
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <div><div class="text-xs text-muted">Jenis Faskes</div><div class="fw-500">Rumah Sakit Umum Pusat</div></div>
+            <div><div class="text-xs text-muted">Kelas RS</div><div class="fw-500">Tipe A</div></div>
+            <div><div class="text-xs text-muted">Kepemilikan</div><div class="fw-500">Pemerintah / Kemenkes RI</div></div>
+            <div><div class="text-xs text-muted">Status Akreditasi</div><div class="fw-500">SNARS Paripurna (2024)</div></div>
+          </div>
+        </div>
+        <div class="card card-sm">
+          <div class="card-title" style="font-size:14px;">Profil Digital</div>
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <div><div class="text-xs text-muted">Vendor RME</div><div class="fw-500">Inligo HIS v4.2</div></div>
+            <div><div class="text-xs text-muted">Infrastruktur</div><div class="fw-500">Hybrid (on-premise + cloud)</div></div>
+            <div><div class="text-xs text-muted">Implementasi RME sejak</div><div class="fw-500">2018</div></div>
+            <div><div class="text-xs text-muted">PIC RME</div><div class="fw-500">dr. Rini Widyastuti, M.Kes</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-riwayat" style="display:none;">
+      <div class="card">
+        <div class="card-title">Riwayat Audit EMRAM</div>
+        <table>
+          <thead><tr>
+            <th>Periode</th><th>Stage Dicapai</th><th>Skor Total</th><th>Status</th><th>Auditor</th><th>Sertifikat</th>
+          </tr></thead>
+          <tbody>
+            <tr>
+              <td>Q2 2025</td>
+              <td><span class="stage-badge stage-s5">Stage 5</span></td>
+              <td><span class="fw-500">84 / 100</span></td>
+              <td><span class="status-badge status-done">Tervalidasi</span></td>
+              <td>Tim Audit Nasional</td>
+              <td><button class="btn btn-ghost" style="font-size:11px; padding:3px 8px;">⬇ Unduh</button></td>
+            </tr>
+            <tr>
+              <td>Q2 2024</td>
+              <td><span class="stage-badge stage-s4">Stage 4</span></td>
+              <td><span class="fw-500">76 / 100</span></td>
+              <td><span class="status-badge status-done">Tervalidasi</span></td>
+              <td>Dinkes DIY</td>
+              <td><button class="btn btn-ghost" style="font-size:11px; padding:3px 8px;">⬇ Unduh</button></td>
+            </tr>
+            <tr>
+              <td>Q1 2023</td>
+              <td><span class="stage-badge stage-s3">Stage 3</span></td>
+              <td><span class="fw-500">68 / 100</span></td>
+              <td><span class="status-badge status-done">Tervalidasi</span></td>
+              <td>Dinkes DIY</td>
+              <td><button class="btn btn-ghost" style="font-size:11px; padding:3px 8px;">⬇ Unduh</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="tab-skor" style="display:none;">
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">Skor per Domain — Audit Q2 2025</div>
+          <div style="display:flex; flex-direction:column; gap:12px;">
+            <div class="domain-card">
+              <div class="domain-header">
+                <div class="domain-name">D1 · Ancillary &amp; Infrastruktur</div>
+                <div class="domain-score text-success">96</div>
+              </div>
+              <div class="progress-wrap"><div class="progress-fill" style="width:96%; background:var(--accent2);"></div></div>
+            </div>
+            <div class="domain-card">
+              <div class="domain-header">
+                <div class="domain-name">D2 · CDR &amp; Terminologi Klinis</div>
+                <div class="domain-score text-success">88</div>
+              </div>
+              <div class="progress-wrap"><div class="progress-fill" style="width:88%; background:var(--accent2);"></div></div>
+            </div>
+            <div class="domain-card">
+              <div class="domain-header">
+                <div class="domain-name">D3 · Dokumentasi Klinis</div>
+                <div class="domain-score" style="color:var(--accent);">82</div>
+              </div>
+              <div class="progress-wrap"><div class="progress-fill" style="width:82%; background:var(--accent);"></div></div>
+            </div>
+            <div class="domain-card">
+              <div class="domain-header">
+                <div class="domain-name">D4 · CPOE &amp; CDS</div>
+                <div class="domain-score" style="color:var(--accent);">79</div>
+              </div>
+              <div class="progress-wrap"><div class="progress-fill" style="width:79%; background:var(--accent);"></div></div>
+            </div>
+            <div class="domain-card">
+              <div class="domain-header">
+                <div class="domain-name">D5 · Closed-loop &amp; PACS</div>
+                <div class="domain-score" style="color:var(--warn);">74</div>
+              </div>
+              <div class="progress-wrap"><div class="progress-fill" style="width:74%; background:var(--warn);"></div></div>
+            </div>
+            <div class="domain-card" style="border-left:3px solid var(--accent);">
+              <div class="domain-header">
+                <div class="domain-name" style="color:var(--accent);">🇮🇩 Satu Sehat Integration</div>
+                <div class="domain-score" style="color:var(--accent);">71</div>
+              </div>
+              <div class="progress-wrap"><div class="progress-fill" style="width:71%; background:var(--accent);"></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Gap Menuju Stage 6</div>
+          <div style="padding:12px; background:var(--surface2); border-radius:8px; margin-bottom:14px;">
+            <div class="text-xs text-muted mb-4">Skor saat ini</div>
+            <div style="font-size:24px; font-family:'DM Serif Display',serif;">84 poin</div>
+            <div class="text-xs text-muted">Butuh ≥90 poin + kriteria wajib Stage 6 terpenuhi</div>
+          </div>
+          <div class="fw-500 mb-8" style="font-size:13px;">Item yang perlu ditingkatkan:</div>
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <div style="padding:10px 12px; background:var(--warn-light); border-radius:8px; border-left:3px solid var(--warn);">
+              <div class="fw-500 text-xs text-warn">Physician documentation belum ≥90%</div>
+              <div class="text-xs text-muted" style="margin-top:2px;">Saat ini 76% — membutuhkan kenaikan 14%</div>
+            </div>
+            <div style="padding:10px 12px; background:var(--warn-light); border-radius:8px; border-left:3px solid var(--warn);">
+              <div class="fw-500 text-xs text-warn">Data warehousing belum aktif</div>
+              <div class="text-xs text-muted" style="margin-top:2px;">Diperlukan untuk analisis pola klinis</div>
+            </div>
+            <div style="padding:10px 12px; background:var(--danger-light); border-radius:8px; border-left:3px solid var(--danger);">
+              <div class="fw-500 text-xs text-danger">HIE ke entitas eksternal belum tersedia</div>
+              <div class="text-xs text-muted" style="margin-top:2px;">Persyaratan kritis Stage 6</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-roadmap" style="display:none;">
+      <div class="card">
+        <div class="card-title">Peta Jalan Kematangan RME</div>
+        <div style="display:flex; align-items:center; gap:0; overflow-x:auto; padding-bottom:8px;">
+          <div style="display:flex; flex-direction:column; align-items:center; min-width:90px;">
+            <div style="width:32px;height:32px;border-radius:50%;background:var(--accent2);color:white;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;">✓</div>
+            <div style="width:1px;height:40px;background:var(--accent2);margin:4px 0;"></div>
+            <div class="stage-badge stage-s3" style="font-size:10px;">Stage 3</div>
+            <div class="text-xs text-muted" style="text-align:center;margin-top:4px;">2023<br>Selesai</div>
+          </div>
+          <div style="flex:1;height:1px;background:var(--accent2);min-width:20px;"></div>
+          <div style="display:flex; flex-direction:column; align-items:center; min-width:90px;">
+            <div style="width:32px;height:32px;border-radius:50%;background:var(--accent2);color:white;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;">✓</div>
+            <div style="width:1px;height:40px;background:var(--accent2);margin:4px 0;"></div>
+            <div class="stage-badge stage-s4" style="font-size:10px;">Stage 4</div>
+            <div class="text-xs text-muted" style="text-align:center;margin-top:4px;">2024<br>Selesai</div>
+          </div>
+          <div style="flex:1;height:1px;background:var(--accent2);min-width:20px;"></div>
+          <div style="display:flex; flex-direction:column; align-items:center; min-width:90px;">
+            <div style="width:32px;height:32px;border-radius:50%;background:var(--accent);color:white;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;">5</div>
+            <div style="width:1px;height:40px;background:var(--accent);margin:4px 0;"></div>
+            <div class="stage-badge stage-s5" style="font-size:10px;">Stage 5</div>
+            <div class="text-xs text-muted" style="text-align:center;margin-top:4px;">Q2 2025<br>✓ Saat ini</div>
+          </div>
+          <div style="flex:1;height:1px;background:var(--border2);min-width:20px;border-top:2px dashed var(--border2);"></div>
+          <div style="display:flex; flex-direction:column; align-items:center; min-width:90px;">
+            <div style="width:32px;height:32px;border-radius:50%;background:var(--surface2);border:2px dashed var(--stage6);color:var(--stage6);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;">6</div>
+            <div style="width:1px;height:40px;background:var(--border);margin:4px 0;"></div>
+            <div class="stage-badge stage-s6" style="font-size:10px;">Stage 6</div>
+            <div class="text-xs text-muted" style="text-align:center;margin-top:4px;">Target<br>Q4 2026</div>
+          </div>
+          <div style="flex:1;height:1px;background:var(--border);min-width:20px;border-top:2px dashed var(--border2);"></div>
+          <div style="display:flex; flex-direction:column; align-items:center; min-width:90px;">
+            <div style="width:32px;height:32px;border-radius:50%;background:var(--surface2);border:2px dashed var(--stage7);color:var(--stage7);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;">7</div>
+            <div style="width:1px;height:40px;background:var(--border);margin:4px 0;"></div>
+            <div class="stage-badge stage-s7" style="font-size:10px;">Stage 7</div>
+            <div class="text-xs text-muted" style="text-align:center;margin-top:4px;">Target<br>2028</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-satusehat" style="display:none;">
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">Status Integrasi Satu Sehat</div>
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            <div style="padding:12px;background:var(--accent2-light);border-radius:8px;display:flex;gap:10px;align-items:center;">
+              <div style="font-size:20px;">✅</div>
+              <div><div class="fw-500 text-xs">Koneksi API Satu Sehat</div><div class="text-xs text-muted">Client ID aktif · Last sync: 2 jam lalu</div></div>
+            </div>
+            <div style="padding:12px;background:var(--accent2-light);border-radius:8px;display:flex;gap:10px;align-items:center;">
+              <div style="font-size:20px;">✅</div>
+              <div><div class="fw-500 text-xs">FHIR R4 — Patient Resource</div><div class="text-xs text-muted">NIK sebagai master patient identifier</div></div>
+            </div>
+            <div style="padding:12px;background:var(--warn-light);border-radius:8px;display:flex;gap:10px;align-items:center;">
+              <div style="font-size:20px;">⚠️</div>
+              <div><div class="fw-500 text-xs text-warn">FHIR R4 — Condition &amp; Observation</div><div class="text-xs text-muted">Parsial — ICD-10 belum semua terkirim</div></div>
+            </div>
+            <div style="padding:12px;background:var(--danger-light);border-radius:8px;display:flex;gap:10px;align-items:center;">
+              <div style="font-size:20px;">❌</div>
+              <div><div class="fw-500 text-xs text-danger">FHIR R4 — Medication &amp; Prescription</div><div class="text-xs text-muted">Belum terhubung</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Statistik Pengiriman Data</div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div><div class="flex justify-between mb-4"><div class="text-xs">Kunjungan terkirim (MTD)</div><div class="text-xs fw-500">12.847</div></div><div class="progress-wrap"><div class="progress-fill" style="width:85%;background:var(--accent2);"></div></div></div>
+            <div><div class="flex justify-between mb-4"><div class="text-xs">Data diagnosis (ICD-10)</div><div class="text-xs fw-500 text-warn">61%</div></div><div class="progress-wrap"><div class="progress-fill" style="width:61%;background:var(--warn);"></div></div></div>
+            <div><div class="flex justify-between mb-4"><div class="text-xs">Resep farmasi</div><div class="text-xs fw-500 text-danger">0%</div></div><div class="progress-wrap"><div class="progress-fill" style="width:0%;background:var(--danger);"></div></div></div>
+            <div><div class="flex justify-between mb-4"><div class="text-xs">Hasil lab &amp; radiologi</div><div class="text-xs fw-500">78%</div></div><div class="progress-wrap"><div class="progress-fill" style="width:78%;background:var(--accent);"></div></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ════════════════════════════
+       PAGE: PETA
+  ════════════════════════════ -->
+  <div class="page-content" id="page-peta">
+    <div class="page-header">
+      <h1>Peta Kesiapan Nasional</h1>
+      <p>Distribusi kematangan EMRAM per wilayah — visualisasi data Q2 2025</p>
+    </div>
+
+    <div class="grid-2-3">
+      <div>
+        <div class="card" style="margin-bottom:14px;">
+          <div class="card-title">Filter Wilayah</div>
+          <div class="form-group">
+            <label class="form-label">Provinsi</label>
+            <select class="form-control">
+              <option>Semua Provinsi</option>
+              <option selected>DI Yogyakarta</option>
+              <option>DKI Jakarta</option>
+              <option>Jawa Tengah</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Jenis Faskes</label>
+            <select class="form-control">
+              <option>Semua Jenis</option>
+              <option>Rumah Sakit</option>
+              <option>Puskesmas</option>
+              <option>Klinik</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Tampilkan Stage</label>
+            <select class="form-control">
+              <option>Semua Stage</option>
+              <option>Stage 0–2 (Dasar)</option>
+              <option>Stage 3–4 (Berkembang)</option>
+              <option>Stage 5–7 (Maju)</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" style="width:100%;">Perbarui Peta</button>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Rangkuman DIY</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div class="flex justify-between"><span class="text-sm">Total faskes</span><span class="fw-500">284</span></div>
+            <div class="flex justify-between"><span class="text-sm">Sudah diaudit</span><span class="fw-500 text-success">198 (70%)</span></div>
+            <div class="flex justify-between"><span class="text-sm">Rata-rata stage</span><span class="fw-500">3.1</span></div>
+            <div class="flex justify-between"><span class="text-sm">Terintegrasi Satu Sehat</span><span class="fw-500 text-success">42%</span></div>
+            <div class="divider"></div>
+            <div class="flex justify-between"><span class="text-sm text-muted">Stage tertinggi (RS)</span><span class="stage-badge stage-s5" style="font-size:10px;">Stage 5</span></div>
+            <div class="flex justify-between"><span class="text-sm text-muted">Stage tertinggi (PKM)</span><span class="stage-badge stage-s3" style="font-size:10px;">Stage 3</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-header">
+          <div class="card-title">Peta Sebaran Faskes</div>
+          <div class="flex gap-8">
+            <button class="btn btn-ghost" style="font-size:11px; padding:4px 10px;">⊞ Grid</button>
+            <button class="btn btn-outline" style="font-size:11px; padding:4px 10px; border-color:var(--accent); color:var(--accent);">◉ Peta</button>
+          </div>
+        </div>
+
+        <div class="map-container">
+          <div class="map-dots">
+            <!-- Dots representing faskes on a stylized map -->
+            <div class="map-dot" style="background:var(--stage5);top:40%;left:45%;" title="RSUP Dr. Sardjito · Stage 5"></div>
+            <div class="map-dot" style="background:var(--stage4);top:38%;left:60%;" title="RS Bethesda · Stage 4"></div>
+            <div class="map-dot" style="background:var(--stage3);top:45%;left:50%;" title="RSUD Wates · Stage 3"></div>
+            <div class="map-dot" style="background:var(--stage2);top:50%;left:42%;" title="Puskesmas Mlati II · Stage 2"></div>
+            <div class="map-dot" style="background:var(--stage3);top:55%;left:55%;" title="Klinik Pratama · Stage 3"></div>
+            <div class="map-dot" style="background:var(--stage4);top:42%;left:35%;" title="RS PKU MUhammadiyah · Stage 4"></div>
+            <div class="map-dot" style="background:var(--stage2);top:60%;left:48%;" title="Puskesmas Bantul · Stage 2"></div>
+            <div class="map-dot" style="background:var(--stage1);top:35%;left:70%;" title="Klinik Prambanan · Stage 1"></div>
+            <div class="map-dot" style="background:var(--stage3);top:48%;left:65%;" title="RS Bethesda Lempuyangwangi · Stage 3"></div>
+            <div class="map-dot" style="background:var(--stage0);top:62%;left:38%;" title="Puskesmas Sedayu · Stage 0"></div>
+          </div>
+
+          <div class="map-legend">
+            <div class="legend-item"><div class="legend-dot" style="background:var(--stage6);"></div><span>Stage 6–7 (Maju)</span></div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--stage4);"></div><span>Stage 4–5 (Berkembang)</span></div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--stage2);"></div><span>Stage 2–3 (Dasar)</span></div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--stage0);"></div><span>Stage 0–1 (Pra-digital)</span></div>
+          </div>
+
+          <!-- Map label -->
+          <div style="position:absolute;top:12px;right:12px;background:rgba(255,255,255,0.85);border-radius:8px;padding:6px 10px;font-size:11px;color:var(--text2);">
+            DI Yogyakarta · 284 Faskes
+          </div>
+        </div>
+
+        <div class="grid-4" style="margin-top:14px; gap:8px;">
+          <div style="text-align:center; padding:10px 6px; background:var(--surface2); border-radius:8px;">
+            <div style="font-size:18px; font-family:'DM Serif Display',serif;">12</div>
+            <div class="text-xs text-muted">Stage 5–7</div>
+          </div>
+          <div style="text-align:center; padding:10px 6px; background:var(--surface2); border-radius:8px;">
+            <div style="font-size:18px; font-family:'DM Serif Display',serif;">54</div>
+            <div class="text-xs text-muted">Stage 3–4</div>
+          </div>
+          <div style="text-align:center; padding:10px 6px; background:var(--surface2); border-radius:8px;">
+            <div style="font-size:18px; font-family:'DM Serif Display',serif;">132</div>
+            <div class="text-xs text-muted">Stage 1–2</div>
+          </div>
+          <div style="text-align:center; padding:10px 6px; background:var(--surface2); border-radius:8px;">
+            <div style="font-size:18px; font-family:'DM Serif Display',serif;">86</div>
+            <div class="text-xs text-muted">Stage 0</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ════════════════════════════
+       PAGE: AUDIT BARU
+  ════════════════════════════ -->
+  <div class="page-content" id="page-audit">
+    <div class="page-header">
+      <h1>Mulai Audit Baru</h1>
+      <p>Daftarkan fasilitas kesehatan dan mulai proses penilaian EMRAM + Satu Sehat</p>
+    </div>
+
+    <div class="grid-2-3">
+      <div class="card">
+        <div class="card-title">Identifikasi Fasilitas</div>
+
+        <div class="form-group">
+          <label class="form-label">Kode Faskes SRS / ASPAK <span class="required">*</span></label>
+          <input class="form-control" type="text" placeholder="Contoh: RS00341 atau PKM04521" value="RS01827">
+          <div class="form-hint">Ketik kode faskes untuk auto-fill data dari ASPAK / SRS Online</div>
+        </div>
+
+        <div style="padding:12px; background:var(--accent2-light); border-radius:8px; margin-bottom:18px; border:1px solid rgba(45,125,90,0.2);">
+          <div class="flex items-center gap-8 mb-8">
+            <span style="font-size:14px;">✅</span>
+            <span class="fw-500 text-xs text-success">Data faskes ditemukan di SRS Online</span>
+          </div>
+          <div class="text-xs" style="color:var(--text2);">RSUD Wates Kulon Progo · RS Pemerintah Tipe B · Kulon Progo, DIY</div>
+        </div>
+
+        <div class="grid-2" style="gap:12px;">
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">Jenis Faskes</label>
+            <select class="form-control">
+              <option>RS Umum Daerah</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">Kelas RS</label>
+            <select class="form-control"><option>Tipe B</option></select>
+          </div>
+        </div>
+        <div class="divider"></div>
+
+        <div class="form-group">
+          <label class="form-label">Nama PIC RME / Narahubung <span class="required">*</span></label>
+          <input class="form-control" type="text" placeholder="Nama lengkap">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Email PIC <span class="required">*</span></label>
+          <input class="form-control" type="email" placeholder="email@faskes.go.id">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Vendor / Sistem RME yang digunakan</label>
+          <select class="form-control">
+            <option>Pilih vendor...</option>
+            <option>Inligo HIS</option>
+            <option>Medigo</option>
+            <option>SIMRs Kemenkes</option>
+            <option>Custom / In-house</option>
+            <option>Lainnya</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Periode Audit</label>
+          <select class="form-control">
+            <option>Q2 2025 (April – Juni 2025)</option>
+            <option>Q3 2025 (Juli – September 2025)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Jenis Penilaian</label>
+          <div style="display:flex; flex-direction:column; gap:8px; margin-top:4px;">
+            <label style="display:flex;gap:10px;align-items:flex-start;cursor:pointer;">
+              <input type="radio" name="jenis" checked style="margin-top:2px;"> 
+              <div><div class="text-sm fw-500">Self-Assessment</div><div class="text-xs text-muted">Faskes mengisi mandiri, diverifikasi Dinkes</div></div>
+            </label>
+            <label style="display:flex;gap:10px;align-items:flex-start;cursor:pointer;">
+              <input type="radio" name="jenis" style="margin-top:2px;"> 
+              <div><div class="text-sm fw-500">Audit Terpandu</div><div class="text-xs text-muted">Auditor Dinkes/Kemenkes memandu pengisian</div></div>
+            </label>
+          </div>
+        </div>
+
+        <button class="btn btn-primary" style="width:100%;" onclick="showPage('instrument')">
+          Mulai Audit → Buka Instrumen
+        </button>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:14px;">
+        <div class="card card-sm">
+          <div class="card-title" style="font-size:14px;">Tentang Instrumen Hybrid</div>
+          <div class="text-xs text-muted" style="line-height:1.7;">
+            Sistem ini menggunakan <strong style="color:var(--text2);">HIMSS EMRAM Stage 0–7</strong> yang dilokalisasi sebagai kerangka kematangan utama, dilengkapi domain tambahan untuk <strong style="color:var(--accent);">integrasi API Satu Sehat</strong> sesuai KMK No. 1423/2022.
+          </div>
+          <div class="divider"></div>
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            <div class="flex items-center gap-8"><span class="pill pill-accent">7 Domain EMRAM</span><span class="text-xs text-muted">Infrastruktur → Paperless</span></div>
+            <div class="flex items-center gap-8"><span class="pill" style="background:var(--accent2-light);color:var(--accent2);">+1 Domain ID</span><span class="text-xs text-muted">Integrasi Satu Sehat</span></div>
+          </div>
+        </div>
+
+        <div class="card card-sm">
+          <div class="card-title" style="font-size:14px;">Riwayat Faskes Ini</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div class="flex justify-between items-center">
+              <span class="text-sm">Audit terakhir</span>
+              <span class="text-xs text-muted">Q1 2024</span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-sm">Stage sebelumnya</span>
+              <span class="stage-badge stage-s3" style="font-size:10px;">Stage 3</span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-sm">Skor sebelumnya</span>
+              <span class="fw-500">68 / 100</span>
+            </div>
+            <div class="divider" style="margin:4px 0;"></div>
+            <div class="text-xs text-muted">Target audit ini: Stage 3 → Stage 4</div>
+          </div>
+        </div>
+
+        <div class="card card-sm" style="background:var(--accent); color:white;">
+          <div style="font-size:14px; font-weight:500; margin-bottom:8px;">Perkiraan Waktu</div>
+          <div style="font-size:24px; font-family:'DM Serif Display',serif; margin-bottom:4px;">45–90 mnt</div>
+          <div style="font-size:11px; opacity:0.8;">Untuk self-assessment lengkap · Bisa disimpan sebagai draf dan dilanjutkan kemudian</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ════════════════════════════
+       PAGE: LAPORAN
+  ════════════════════════════ -->
+  <div class="page-content" id="page-laporan">
+    <div class="page-header">
+      <h1>Laporan &amp; Analitik</h1>
+      <p>Ringkasan kematangan RME nasional dan komparasi regional</p>
+    </div>
+
+    <div class="grid-4 mb-20">
+      <div class="metric-card">
+        <div class="metric-label">Tipe A (Nasional)</div>
+        <div class="metric-value">4.2</div>
+        <div class="metric-change">Rata-rata stage EMRAM</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Tipe B (Nasional)</div>
+        <div class="metric-value">3.1</div>
+        <div class="metric-change">Rata-rata stage EMRAM</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Puskesmas</div>
+        <div class="metric-value">1.8</div>
+        <div class="metric-change">Rata-rata stage EMRAM</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Klinik Pratama</div>
+        <div class="metric-value">1.2</div>
+        <div class="metric-change">Rata-rata stage EMRAM</div>
+      </div>
+    </div>
+
+    <div class="grid-2 mb-14">
+      <div class="card">
+        <div class="card-title">Tren Kematangan — Nasional (2022–2025)</div>
+        <div style="position:relative; height:160px; margin-top:8px;">
+          <svg width="100%" height="160" viewBox="0 0 440 160" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="lineGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#1A4F7A" stop-opacity="0.15"/>
+                <stop offset="100%" stop-color="#1A4F7A" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <!-- Grid lines -->
+            <line x1="0" y1="130" x2="440" y2="130" stroke="#E2DDD4" stroke-width="0.5"/>
+            <line x1="0" y1="97" x2="440" y2="97" stroke="#E2DDD4" stroke-width="0.5"/>
+            <line x1="0" y1="64" x2="440" y2="64" stroke="#E2DDD4" stroke-width="0.5"/>
+            <line x1="0" y1="31" x2="440" y2="31" stroke="#E2DDD4" stroke-width="0.5"/>
+            <!-- Labels -->
+            <text x="0" y="134" font-size="9" fill="#9C978E">Stage 1</text>
+            <text x="0" y="101" font-size="9" fill="#9C978E">Stage 2</text>
+            <text x="0" y="68" font-size="9" fill="#9C978E">Stage 3</text>
+            <text x="0" y="35" font-size="9" fill="#9C978E">Stage 4</text>
+            <!-- Area fill -->
+            <path d="M40,120 C100,110 150,105 200,95 C250,85 300,72 360,65 L360,160 L40,160 Z" fill="url(#lineGrad)"/>
+            <!-- Line -->
+            <path d="M40,120 C100,110 150,105 200,95 C250,85 300,72 360,65" fill="none" stroke="#1A4F7A" stroke-width="2" stroke-linecap="round"/>
+            <!-- Dots -->
+            <circle cx="40" cy="120" r="4" fill="#1A4F7A"/>
+            <circle cx="130" cy="107" r="4" fill="#1A4F7A"/>
+            <circle cx="220" cy="95" r="4" fill="#1A4F7A"/>
+            <circle cx="310" cy="75" r="4" fill="#1A4F7A"/>
+            <circle cx="360" cy="65" r="5" fill="#1A4F7A" stroke="white" stroke-width="2"/>
+            <!-- X labels -->
+            <text x="35" y="150" font-size="9" fill="#9C978E" text-anchor="middle">2022</text>
+            <text x="130" y="150" font-size="9" fill="#9C978E" text-anchor="middle">2023 Q1</text>
+            <text x="220" y="150" font-size="9" fill="#9C978E" text-anchor="middle">2023 Q3</text>
+            <text x="310" y="150" font-size="9" fill="#9C978E" text-anchor="middle">2024</text>
+            <text x="360" y="150" font-size="9" fill="#9C978E" text-anchor="middle">2025 Q2</text>
+          </svg>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Perbandingan Regional</div>
+        <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px;">
+          <div>
+            <div class="flex justify-between mb-4"><div class="text-sm">DKI Jakarta</div><div class="text-sm fw-500">3.8</div></div>
+            <div class="progress-wrap"><div class="progress-fill" style="width:54%;background:var(--accent);"></div></div>
+          </div>
+          <div>
+            <div class="flex justify-between mb-4"><div class="text-sm">DI Yogyakarta</div><div class="text-sm fw-500">3.1</div></div>
+            <div class="progress-wrap"><div class="progress-fill" style="width:44%;background:var(--accent2);"></div></div>
+          </div>
+          <div>
+            <div class="flex justify-between mb-4"><div class="text-sm">Jawa Tengah</div><div class="text-sm fw-500">2.9</div></div>
+            <div class="progress-wrap"><div class="progress-fill" style="width:41%;background:var(--stage4);"></div></div>
+          </div>
+          <div>
+            <div class="flex justify-between mb-4"><div class="text-sm">Jawa Timur</div><div class="text-sm fw-500">2.7</div></div>
+            <div class="progress-wrap"><div class="progress-fill" style="width:38%;background:var(--stage3);"></div></div>
+          </div>
+          <div>
+            <div class="flex justify-between mb-4"><div class="text-sm">Sulawesi Selatan</div><div class="text-sm fw-500">2.2</div></div>
+            <div class="progress-wrap"><div class="progress-fill" style="width:31%;background:var(--stage2);"></div></div>
+          </div>
+          <div>
+            <div class="flex justify-between mb-4"><div class="text-sm">Papua</div><div class="text-sm fw-500">1.1</div></div>
+            <div class="progress-wrap"><div class="progress-fill" style="width:16%;background:var(--stage1);"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-header">
+        <div class="card-title">Ekspor Laporan</div>
+      </div>
+      <div class="grid-3" style="gap:10px;">
+        <div style="padding:14px;border:1px solid var(--border);border-radius:10px;cursor:pointer;transition:all 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+          <div style="font-size:20px;margin-bottom:8px;">📄</div>
+          <div class="fw-500 text-sm">Laporan PDF Nasional</div>
+          <div class="text-xs text-muted">Ringkasan kematangan RME seluruh faskes</div>
+        </div>
+        <div style="padding:14px;border:1px solid var(--border);border-radius:10px;cursor:pointer;transition:all 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+          <div style="font-size:20px;margin-bottom:8px;">📊</div>
+          <div class="fw-500 text-sm">Data Excel Regional</div>
+          <div class="text-xs text-muted">Raw data per faskes, per provinsi</div>
+        </div>
+        <div style="padding:14px;border:1px solid var(--border);border-radius:10px;cursor:pointer;transition:all 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+          <div style="font-size:20px;margin-bottom:8px;">🏆</div>
+          <div class="fw-500 text-sm">Sertifikat Stage</div>
+          <div class="text-xs text-muted">Sertifikat digital per faskes</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ─── Navigation ───
+function showPage(name) {
+  document.querySelectorAll('.page-content').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+  const page = document.getElementById('page-' + name);
+  if (page) {
+    page.classList.add('active');
+    // Trigger animation re-run
+    page.style.display = 'none';
+    page.offsetHeight; // reflow
+    page.style.display = '';
+  }
+
+  const titles = {
+    dashboard: 'Dashboard Nasional',
+    faskes: 'Direktori Faskes',
+    peta: 'Peta Kesiapan',
+    audit: 'Audit Baru',
+    instrument: 'Instrumen EMRAM — RSUD Wates',
+    verifikasi: 'Antrian Verifikasi',
+    laporan: 'Laporan & Analitik',
+    benchmark: 'Benchmark Regional',
+    profil: 'Profil Faskes',
+  };
+
+  document.getElementById('topbar-title').textContent = titles[name] || name;
+
+  // Highlight active nav item
+  document.querySelectorAll('.nav-item').forEach(btn => {
+    if (btn.getAttribute('onclick') && btn.getAttribute('onclick').includes("'" + name + "'")) {
+      btn.classList.add('active');
+    }
+  });
+}
+
+// ─── Tab Switching (Profil Faskes) ───
+function switchTab(btn, tabId) {
+  const tabs = ['tab-identitas','tab-riwayat','tab-skor','tab-roadmap','tab-satusehat'];
+  tabs.forEach(t => {
+    const el = document.getElementById(t);
+    if (el) el.style.display = 'none';
+  });
+  const target = document.getElementById(tabId);
+  if (target) target.style.display = 'block';
+
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// ─── Radio option selection ───
+document.querySelectorAll('.radio-opt').forEach(opt => {
+  opt.addEventListener('click', function() {
+    const group = this.closest('.radio-group');
+    group.querySelectorAll('.radio-opt').forEach(o => {
+      o.classList.remove('sel-yes','sel-partial','sel-no');
+    });
+    const options = group.querySelectorAll('.radio-opt');
+    const idx = Array.from(options).indexOf(this);
+    if (idx === 0) this.classList.add('sel-yes');
+    else if (idx === 1) this.classList.add('sel-partial');
+    else this.classList.add('sel-no');
+  });
+});
+
+// ─── Init active nav ───
+document.querySelector('.nav-item.active') && null;
+</script>
+</body>
+</html>
+
