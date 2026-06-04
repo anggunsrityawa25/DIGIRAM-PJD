@@ -3,7 +3,7 @@ name: Deploy to InfinityFree via FTP
 on:
   push:
     branches:
-      - main # Skrip berjalan otomatis setiap kamu melakukan git push ke branch main
+      - main
 
 jobs:
   web-deploy:
@@ -16,18 +16,12 @@ jobs:
     - name: Set up PHP
       uses: shivammathur/setup-php@v2
       with:
-        php-version: '8.2' # Sesuaikan dengan versi PHP Laravel kamu
+        php-version: '8.2'
 
     - name: Install Dependencies Laravel
+      # Kode di bawah ini memaksa GitHub masuk ke folder backend terlebih dahulu
+      working-directory: ./digiram-backend
       run: composer install --no-dev --optimize-autoloader --no-ansi --no-interaction --no-scripts --prefer-dist
-
-    # JIKA KAMU INGIN SEKALIGUS MERAKIT/BUILD FRONTEND DI SERVER GITHUB, AKTIFKAN BAGIAN INI:
-    # - name: Install Node.js & Build Front-End
-    #   uses: actions/setup-node@v3
-    #   with:
-    #     node-version: '18'
-    # - run: npm install
-    # - run: npm run build
 
     - name: Sync Files to InfinityFree
       uses: SamKirkland/FTP-Deploy-Action@v4.3.4
@@ -35,4 +29,6 @@ jobs:
         server: ${{ secrets.FTP_SERVER }}
         username: ${{ secrets.FTP_USERNAME }}
         password: ${{ secrets.FTP_PASSWORD }}
-        server-dir: htdocs/ # Mengirimkan file langsung ke folder htdocs InfinityFree
+        server-dir: htdocs/
+        # Kode di bawah ini memastikan hanya isi folder backend saja yang di-upload ke InfinityFree
+        local-dir: ./digiram-backend/
